@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>黑犬酒吧 · 喝酒月卡</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+  * { font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .card-shadow { box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+  .progress-bar { transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+  .empty-state { min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+</style>
+</head>
+<body class="bg-gray-50 min-h-[100dvh]">
+
+<div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden px-6 py-3 rounded-xl text-white font-medium text-sm shadow-lg"></div>
+
+<div class="max-w-md mx-auto px-4 py-8">
+  <h1 class="text-center text-2xl font-black text-gray-900 mb-1">🍺 黑犬酒吧</h1>
+  <p class="text-center text-sm text-gray-400 mb-8">198元/4杯 · 每天1杯 · 可转赠1次</p>
+
+  <!-- Search -->
+  <div class="flex gap-2 mb-6">
+    <input type="text" id="custSearch" onkeydown="if(event.key==='Enter')search()" placeholder="输入手机号或邀请码查询..."
+      class="flex-1 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-base focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none" autofocus>
+    <button onclick="search()" class="px-6 py-3 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 active:scale-95 transition-all">
+      查询
+    </button>
+  </div>
+
+  <!-- Result -->
+  <div id="custResult" class="hidden fade-in"></div>
+
+  <!-- Empty -->
+  <div id="custEmpty" class="empty-state text-gray-400">
+    <p class="text-5xl mb-4">🎫</p>
+    <p class="text-sm">输入手机号或邀请码查看你的月卡</p>
+  </div>
+</div>
+
+<script>
+// ===== DATA LOADER =====
+// Load from data.json (same directory), fall back to embedded demo data
+var app = { cards: [], records: [], nextId: 1, wallets: {}, giftTickets: [] };
+
+/*
+DEMO_DATA_PLACEHOLDER
+*/
+
+function loadData() {
+  fetch('data.json?' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      app.cards = d.cards || [];
+      app.wallets = d.wallets || {};
+      app.giftTickets = d.giftTickets || [];
+    })
+    .catch(function() {
+      console.log('data.json not found, loading demo data from embedded fallback');
+    });
+}
+
+function toast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  setTimeout(function() { el.classList.add('hidden'); }, 2500);
+}
+
+function getWallet(code) {
+  var w = app.wallets[code];
+  return w ? { balance: w.balance, history: w.history } : null;
+}
+
+function findCardByInviteCode(code) {
+  if (!code) return null;
+  var upper = code.toUpperCase().trim();
+  return app.cards.find(function(c) { return c.inviteCode && c.inviteCode.toUpperCase() === upper; });
+}
+
+// ===== SEARCH =====
+// mask phone: 138****1111
+function maskPhone(p) { return p ? p.slice(0,3) + '****' + p.slice(-4) : ''; }
+
+// Search: phone OR invite code (NOT name alone — security)
+function search() {
+  var query = document.getElementById('custSearch').value.trim();
+  if (!query) return;
+
+  // Check if query looks like a phone number
+  var isPhone = /^1\d{10}$/.test(query);
+
+  var cards = app.cards.filter(function(c) {
+    // Card ID exact match (for debug/boss use)
+    if (c.id === query) return true;
+    // Phone exact match
+    if (c.phone === query) return true;
+    // Invite code exact match
+    if (c.inviteCode && c.inviteCode.toUpperCase() === query.toUpperCase()) return true;
+    // Phone partial match (loose search)
+    if (c.phone.indexOf(query) !== -1) return true;
+    return false;
+  });
+
+  var result = document.getElementById('custResult');
+  var empty = document.getElementById('custEmpty');
+
+  if (cards.length === 0) {
+    if (isPhone) {
+      result.classList.add('hidden');
+      empty.classList.remove('hidden');
+      return toast('未找到该号码对应的月卡。\n可以现场找老板办一张！');
+    }
+    result.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return toast('未找到匹配的月卡。\n请用手机号或邀请码查询。');
+  }
+
+  if (cards.length === 1) {
+    showCard(cards[0]);
+    return;
+  }
+
+  empty.classList.add('hidden');
+  result.classList.remove('hidden');
+  var sm = { active:{label:'生效中',c:'text-green-600'}, warning:{label:'即将到期',c:'text-yellow-600'}, expired:{label:'已过期',c:'text-red-500'}, used:{label:'已用完',c:'text-gray-400'} };
+  var html = '<div class="bg-white rounded-3xl p-6 card-shadow">'
+    + '<p class="text-sm font-bold text-gray-700 mb-3">找到 ' + cards.length + ' 张匹配的卡：</p>'
+    + '<div class="space-y-2">';
+  cards.forEach(function(c, i) {
+    var s = sm[c.status];
+    html += '<button onclick="showCardById(\'' + c.id + '\')" class="w-full px-4 py-3 bg-gray-50 rounded-xl text-left hover:bg-red-50 active:scale-[0.98] transition-all border border-gray-100">'
+    + '<span class="font-bold text-sm">' + c.name + '</span>'
+    + '<span class="text-xs text-gray-400 ml-2">' + maskPhone(c.phone) + '</span>'
+    + '<span class="float-right text-xs font-bold ' + s.c + '">' + s.label + '</span>'
+    + '<br><span class="text-xs text-gray-400">剩余 ' + (c.total-c.used) + '/' + c.total + ' 杯</span>'
+    + '</button>';
+  });
+  html += '</div></div>';
+  result.innerHTML = html;
+}
+
+function showCardById(id) {
+  var c = app.cards.find(function(x){return x.id===id;});
+  if (c) showCard(c);
+}
+
+function findCardByInvCode(code) {
+  return app.cards.find(function(c) { return c.inviteCode && c.inviteCode.toUpperCase() === code.toUpperCase().trim(); });
+}
+
+function showCard(card) {
+  var result = document.getElementById('custResult');
+  var empty = document.getElementById('custEmpty');
+  empty.classList.add('hidden');
+  result.classList.remove('hidden');
+
+  var remain = card.total - card.used;
+  var pct = card.total > 0 ? (remain / card.total) * 100 : 0;
+  var daysLeft = Math.max(0, Math.ceil((new Date(card.expireDate) - new Date()) / 86400000));
+
+  var sm = {
+    active:  { label: '生效中',   color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+    warning: { label: '即将到期', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+    expired: { label: '已过期',   color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+    used:    { label: '已用完',   color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+  };
+  var s = sm[card.status];
+
+  var daysText;
+  if (card.status === 'expired') daysText = '已过期';
+  else if (card.status === 'used') daysText = '—';
+  else daysText = daysLeft + ' 天';
+
+  var wallet = getWallet(card.inviteCode);
+  var fundBalance = wallet ? wallet.balance : 0;
+
+  var footerText;
+  if (card.status === 'warning') {
+    var renewPrice = 198 - fundBalance;
+    if (renewPrice < 0) renewPrice = 0;
+    footerText = '卡即将到期！续卡叠加杯数+送赠饮券';
+  } else if (card.status === 'active') {
+    footerText = '到店出示此页面给店员核销 · 每天限1杯';
+  } else {
+    footerText = '此卡已失效，联系店员续卡可激活';
+  }
+
+  var inviteCount = 0;
+  if (card.inviteCode) {
+    inviteCount = app.cards.filter(function(c) { return c.invitedBy === card.inviteCode; }).length;
+  }
+
+  var html =
+    '<button onclick="search()" class="text-xs text-red-400 font-bold hover:text-red-500 transition-all mb-3 block">← 返回搜索</button>'
+    + '<div class="bg-white rounded-3xl p-6 card-shadow">'
+    + '<div class="text-center mb-5">'
+    + '<span class="inline-block px-3 py-1 rounded-full text-xs font-bold" style="background:' + s.bg + ';color:' + s.color + '">' + s.label + '</span>'
+    + '</div>'
+    + '<div class="text-center mb-5">'
+    + '<p class="text-5xl font-black text-gray-900">' + remain + '<span class="text-xl text-gray-300 font-normal"> / ' + card.total + '</span></p>'
+    + '<p class="text-xs text-gray-400 mt-1">剩余杯数</p>'
+    + '<div class="mt-3 mx-auto w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">'
+    + '<div class="h-2.5 rounded-full progress-bar" style="width:' + pct + '%;background:' + s.color + '"></div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="space-y-2.5 text-sm bg-gray-50 rounded-2xl p-4">'
+    + '<div class="flex justify-between"><span class="text-gray-400">卡号</span><span class="font-bold text-gray-700 font-mono">' + card.id + '</span></div>'
+    + '<div class="flex justify-between"><span class="text-gray-400">姓名</span><span class="font-bold text-gray-700">' + card.name + '</span></div>'
+    + '<div class="flex justify-between"><span class="text-gray-400">购买日期</span><span class="text-gray-600">' + card.buyDate + '</span></div>'
+    + '<div class="flex justify-between"><span class="text-gray-400">到期日期</span><span class="text-gray-600">' + card.expireDate + '</span></div>'
+    + '<div class="flex justify-between"><span class="text-gray-400">剩余天数</span><span class="font-bold" style="color:' + s.color + '">' + daysText + '</span></div>'
+    + '</div>';
+
+  // Wallet
+  if (fundBalance > 0) {
+    html += '<div class="mt-4 bg-green-50 rounded-2xl p-4 text-center">'
+    + '<p class="text-xs text-green-600 font-bold mb-1">喝酒基金</p>'
+    + '<p class="text-3xl font-black text-green-700">' + fundBalance.toFixed(2) + '</p>'
+    + '<p class="text-xs text-green-500 mt-1">续卡或消费可抵扣</p>'
+    + '</div>';
+  }
+
+  // Invite code
+  if (card.inviteCode) {
+    html += '<div class="mt-4 bg-amber-50 rounded-2xl p-4 text-center">'
+    + '<p class="text-xs text-amber-600 font-bold mb-1">你的邀请码</p>'
+    + '<p class="text-2xl font-black text-amber-700 font-mono tracking-widest">' + card.inviteCode + '</p>'
+    + '<p class="text-xs text-amber-500 mt-1">朋友办卡报这个码，你白得1杯赠饮</p>';
+    if (inviteCount > 0) {
+      html += '<p class="text-xs text-amber-400 mt-0.5">本月已邀请 ' + inviteCount + ' 人</p>';
+    }
+    html += '<button onclick="copyInviteText()" class="mt-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 active:scale-95 transition-all w-full">转发邀请给朋友</button>'
+    + '</div>';
+  }
+
+  // Gift tickets
+  var tickets = (app.giftTickets || []).filter(function(t) {
+    return t.ownerPhone === card.phone && (t.status === 'unused' || t.status === 'transferred');
+  });
+  if (tickets.length > 0) {
+    html += '<div class="mt-4 bg-pink-50 rounded-2xl p-4">';
+    html += '<p class="text-xs text-pink-600 font-bold mb-2">赠饮券（' + tickets.length + '张可用）</p>';
+    tickets.forEach(function(t) {
+      var d = Math.max(0, Math.ceil((new Date(t.expireDate) - new Date()) / 86400000));
+      var es = t.expireDate.replace(/^\d{4}-/, '');
+      html += '<div class="bg-white rounded-xl p-3 mb-2 last:mb-0">';
+      html += '<div class="flex items-center justify-between mb-1">';
+      html += '<span class="text-xs font-bold text-pink-700">兑换码：' + (t.redeemCode || t.id) + '</span>';
+      html += '<span class="text-xs text-pink-400">' + d + '天有效（至' + es + '）</span>';
+      html += '</div>';
+      html += '<p class="text-xs text-pink-500">来源：' + t.sourceDetail + '</p>';
+      html += '<button onclick="copyGiftShare(this)" data-code="' + (t.redeemCode || t.id) + '" data-expire="' + es + '" class="mt-1.5 px-3 py-1.5 bg-pink-500 text-white rounded-lg text-xs font-bold hover:bg-pink-600 active:scale-95 transition-all w-full">转发给朋友（复制文案）</button>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="mt-5 pt-4 border-t border-gray-100">'
+    + '<p class="text-xs text-gray-400 text-center">' + footerText + '</p>'
+    + '</div>'
+    + '</div>';
+
+  result.innerHTML = html;
+  window._currentCard = card;
+}
+
+// ===== Copy functions =====
+function copyInviteText() {
+  var card = window._currentCard;
+  if (!card) return;
+  var inviteCount = app.cards.filter(function(c) { return c.invitedBy === card.inviteCode; }).length;
+  var text =
+    '帮我攒杯酒呗～\n\n' +
+    '我在黑犬酒吧办了个喝酒月卡，198元喝4杯。\n' +
+    '你也来办的话，填我的邀请码 \n\n' +
+    '邀请码：' + card.inviteCode + '\n' +
+    '来自：' + card.name + '\n' +
+    (inviteCount > 0 ? '已帮 ' + card.name + ' 攒了 ' + inviteCount + ' 杯酒\n\n' : '\n') +
+    '你办卡 我白得1杯赠饮\n' +
+    '你续卡 我基金+5%\n\n' +
+    '到店跟老板说「办月卡，邀请码 ' + card.inviteCode + '」或直接转账';
+  copyText(text);
+}
+
+function copyGiftShare(btn) {
+  var code = btn.getAttribute('data-code');
+  var expire = btn.getAttribute('data-expire');
+  var text =
+    '请你喝一杯！\n\n' +
+    '我的朋友送你一张【黑犬酒吧】赠饮券 \n' +
+    '凭兑换码到店免费喝一杯\n\n' +
+    '兑换码：' + code + '\n' +
+    '有效期至：' + expire + '\n' +
+    '到店出示此信息即可核销\n\n' +
+    '喝完觉得不错的话，也可以办张月卡哦～';
+  copyText(text);
+}
+
+function copyText(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      toast('已复制，可粘贴到微信发送');
+    }).catch(function() {
+      prompt('请手动复制：', text);
+    });
+  } else {
+    prompt('请手动复制：', text);
+  }
+}
+
+// ===== INIT =====
+loadData();
+search();
+</script>
+</body>
+</html>
