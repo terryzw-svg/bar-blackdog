@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>黑狗酒吧 · 喝酒月卡</title>
+<title>Bar Blackdog · 喝酒月卡</title>
 <script src="tailwind-play-cdn.js"></script>
 <style>
   * { font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -27,10 +27,67 @@
   <!-- ====== 首页 ====== -->
   <div id="homePage">
     <!-- HEADER -->
-    <div class="text-center mb-8">
-      <div class="text-5xl mb-3">🐕</div>
-      <h1 class="text-2xl font-black text-gray-900">黑狗酒吧</h1>
-      <p class="text-sm text-gray-400 mt-0.5">BLACKDOG BAR</p>
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-2">🐕</div>
+      <h1 class="text-2xl font-black text-gray-900">Bar Blackdog</h1>
+      <p class="text-sm text-gray-400 mt-0.5">THE DRINKING SOCIETY</p>
+    </div>
+
+    <!-- 查卡（置顶） -->
+    <div class="bg-white rounded-2xl p-5 mb-4 card-shadow">
+      <h2 class="text-lg font-black text-gray-900 mb-3">🔍 查我的月卡</h2>
+      <p class="text-xs text-gray-400 mb-3">输入姓名、手机号任意几位</p>
+      <input type="text" id="cardInput" oninput="doQuery()" placeholder="姓名 / 手机号任意几位..."
+        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none" autocomplete="off">
+
+      <!-- 搜索结果列表（多个匹配时） -->
+      <div id="matchList" class="hidden mt-3 space-y-2"></div>
+
+      <!-- 结果卡片 -->
+      <div id="resultCard" class="hidden mt-4 fade-in">
+        <!-- 状态标签 -->
+        <div class="text-center mb-4" id="statusBadge"></div>
+
+        <!-- 剩余杯数 -->
+        <div class="text-center mb-5">
+          <p class="text-5xl font-black text-gray-900"><span id="remainCups">-</span><span class="text-xl text-gray-300 font-normal" id="totalCupsEl"> / -</span></p>
+          <p class="text-xs text-gray-400 mt-1">剩余杯数</p>
+          <div class="mt-3 w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+            <div class="progress-bar h-2.5 rounded-full" id="progressBar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- 信息 -->
+        <div class="space-y-2.5 text-sm bg-gray-50 rounded-2xl p-4">
+          <div class="flex justify-between"><span class="text-gray-400">卡号</span><span class="font-bold text-gray-700 font-mono" id="cardId"></span></div>
+          <div class="flex justify-between"><span class="text-gray-400">姓名</span><span class="font-bold text-gray-700" id="cardName"></span></div>
+          <div class="flex justify-between"><span class="text-gray-400">购买日期</span><span id="buyDate" class="text-gray-600"></span></div>
+          <div class="flex justify-between"><span class="text-gray-400">到期日期</span><span id="expireDate" class="text-gray-600"></span></div>
+          <div class="flex justify-between"><span class="text-gray-400">剩余天数</span><span id="daysLeft" class="font-bold"></span></div>
+        </div>
+
+        <!-- 基金余额 -->
+        <div id="walletBox" class="hidden mt-4 bg-green-50 rounded-2xl p-4 text-center">
+          <p class="text-xs text-green-600 font-bold mb-1">💰 喝酒基金</p>
+          <p class="text-3xl font-black text-green-700" id="walletBalance"></p>
+          <p class="text-xs text-green-500 mt-1">续卡或消费可抵扣</p>
+        </div>
+
+        <!-- 邀请码 -->
+        <div id="inviteBox" class="hidden mt-4 bg-amber-50 rounded-2xl p-4 text-center">
+          <p class="text-xs text-amber-600 font-bold mb-1">你的邀请码</p>
+          <p class="text-xl font-black text-amber-800 font-mono tracking-wider" id="inviteCode"></p>
+          <p class="text-xs text-amber-500 mt-1" id="inviteCount"></p>
+          <p class="text-xs text-amber-400 mt-0.5">朋友续卡还能继续攒基金（续卡费5%）</p>
+          <button onclick="copyInviteText()" class="mt-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 active:scale-95 transition-all w-full">📤 一键邀请（复制文案）</button>
+        </div>
+
+        <!-- 赠饮券 -->
+        <div id="ticketsBox" class="hidden mt-4 bg-pink-50 rounded-2xl p-4"></div>
+
+        <!-- 底部提示 -->
+        <div id="footerTip" class="mt-3 text-xs text-gray-400 text-center"></div>
+      </div>
     </div>
 
     <!-- 月卡介绍 -->
@@ -40,8 +97,8 @@
       <p class="text-sm text-gray-500 mb-3">30天 · 4杯精酿特调 · 随时约酒</p>
       <div class="flex flex-wrap gap-2">
         <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-bold rounded-full">每天限1杯</span>
-        <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-bold rounded-full">可赠饮好友</span>
-        <span class="px-3 py-1 bg-green-50 text-green-600 text-xs font-bold rounded-full">邀请有奖</span>
+        <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-bold rounded-full">本人到店核销</span>
+        <span class="px-3 py-1 bg-green-50 text-green-600 text-xs font-bold rounded-full">邀请有赠饮</span>
         <span class="px-3 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">30天有效</span>
       </div>
     </div>
@@ -56,186 +113,219 @@
       </div>
     </div>
 
-    <!-- 查询入口 -->
-    <div class="bg-white rounded-2xl p-5 mb-4 card-shadow text-center">
-      <h2 class="text-lg font-black text-gray-900 mb-1">🔍 查我的卡</h2>
-      <p class="text-sm text-gray-400 mb-4">输入卡号查看剩余杯数和有效期</p>
-      <button onclick="showQuery()" class="w-full px-6 py-3 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 active:scale-95 transition-all">
-        查询我的月卡
-      </button>
-    </div>
-
     <!-- 规则 -->
     <div class="bg-white rounded-2xl p-5 mb-4 card-shadow">
       <h2 class="text-lg font-black text-gray-900 mb-3">📋 使用规则</h2>
       <ul class="space-y-2 text-sm text-gray-500">
-        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span> 月卡有效期 30 天，从购买日起算</li>
-        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span> 每天限核销 1 杯，不可累积</li>
-        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span> 可赠饮好友（从本人卡扣减）</li>
-        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span> 邀请好友办卡，双方各得 1 杯赠饮券</li>
-        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span> 月卡不可转让、不可退款</li>
-        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span> 最终解释权归黑狗酒吧所有</li>
+        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span>198元/月，30天有效，含4杯精酿特调</li>
+        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span>每天限核销1杯，需本人到店</li>
+        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span>邀请新客户办卡 → 邀请人获赠饮券1张 + ¥9.90基金</li>
+        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span>赠饮券可转赠好友使用</li>
+        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span>朋友续卡 → 邀请人基金+5%续卡费</li>
+        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span>过期后可续卡激活剩余次数（续卡送赠饮券）</li>
+        <li class="flex items-start gap-2"><span class="text-red-400 font-bold shrink-0">·</span>最终解释权归 Bar Blackdog 所有</li>
       </ul>
     </div>
 
     <!-- Footer -->
     <div class="text-center text-xs text-gray-300 py-4">
-      BLACKDOG BAR · 长沙市<br>每日 19:00 - 02:00
-    </div>
-  </div>
-
-  <!-- ====== 查询页 ====== -->
-  <div id="queryPage" class="hidden">
-    <!-- Back -->
-    <button onclick="showHome()" class="mb-4 px-3 py-1.5 text-sm font-bold text-red-400 hover:text-red-500 transition-all">← 返回首页</button>
-
-    <!-- 查询框 -->
-    <div class="mb-6">
-      <p class="text-center text-sm text-gray-400 mb-3">输入卡号查看你的喝酒月卡</p>
-      <div class="flex gap-2">
-        <input type="text" id="cardInput" onkeydown="if(event.key==='Enter')doQuery()" placeholder="输入卡号，如 MK-20260706"
-          class="flex-1 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-base focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none">
-        <button onclick="doQuery()" class="px-6 py-3 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 active:scale-95 transition-all">
-          查询
-        </button>
-      </div>
-    </div>
-
-    <!-- 结果卡片 -->
-    <div id="resultCard" class="hidden bg-white rounded-2xl p-5 mb-4 card-shadow fade-in">
-      <div class="flex items-baseline justify-between mb-1">
-        <h3 class="text-xl font-black text-gray-900" id="cardName"></h3>
-        <span class="text-xs text-gray-300" id="cardId"></span>
-      </div>
-
-      <!-- 进度条 -->
-      <div class="mt-3 mb-5">
-        <div class="flex justify-between text-xs font-bold mb-1">
-          <span class="text-gray-400">已用 <span id="progUsed" class="text-red-500">0</span> 杯</span>
-          <span class="text-gray-400">剩余 <span id="progRemain" class="text-red-500">0</span> 杯</span>
-        </div>
-        <div class="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
-          <div class="progress-bar h-full bg-red-500 rounded-full" id="progressBar" style="width:0%"></div>
-        </div>
-        <div class="flex justify-between text-xs text-gray-300 mt-1">
-          <span>0</span><span id="progTotal">4</span>
-        </div>
-      </div>
-
-      <!-- 信息 -->
-      <div class="grid grid-cols-3 gap-3 mb-4">
-        <div class="text-center bg-gray-50 rounded-xl py-3">
-          <div class="text-2xl font-black text-gray-900" id="totalCups">-</div>
-          <div class="text-xs text-gray-400 mt-0.5">总杯数</div>
-        </div>
-        <div class="text-center bg-gray-50 rounded-xl py-3">
-          <div class="text-2xl font-black text-red-500" id="usedCups">-</div>
-          <div class="text-xs text-gray-400 mt-0.5">已用</div>
-        </div>
-        <div class="text-center bg-red-50 rounded-xl py-3">
-          <div class="text-2xl font-black text-red-500" id="remainCups">-</div>
-          <div class="text-xs text-gray-400 mt-0.5">剩余</div>
-        </div>
-      </div>
-
-      <div class="text-sm mb-4" id="expireInfo"></div>
-
-      <!-- 转发 -->
-      <div class="border-t border-gray-100 pt-4">
-        <p class="text-xs font-bold text-gray-400 mb-2">📤 分享给朋友</p>
-        <div class="flex gap-2">
-          <div class="flex-1 bg-gray-50 rounded-xl p-3 text-xs text-gray-500 leading-relaxed whitespace-pre-wrap break-all font-mono" id="copyText" style="user-select:all"></div>
-          <button onclick="doCopy()" class="shrink-0 px-4 py-3 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 active:scale-95 transition-all">📋<br>复制</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 空状态 -->
-    <div id="emptyState" class="empty-state text-gray-400">
-      <p class="text-5xl mb-4">🎫</p>
-      <p class="text-sm">输入卡号查看你的喝酒月卡</p>
+      Bar Blackdog · 长沙市<br>每日 19:00 - 02:00
     </div>
   </div>
 </div>
 
 <script src="cards-data.js"></script>
 <script>
-// ====== 页面切换 ======
-function showQuery() {
-  document.getElementById('homePage').classList.add('hidden');
-  document.getElementById('queryPage').classList.remove('hidden');
-  document.getElementById('cardInput').focus();
-}
-function showHome() {
-  document.getElementById('homePage').classList.remove('hidden');
-  document.getElementById('queryPage').classList.add('hidden');
-  document.getElementById('resultCard').classList.add('hidden');
-  document.getElementById('emptyState').classList.remove('hidden');
-  document.getElementById('cardInput').value = '';
-}
+// 当前选中的卡（用于复制等操作）
+var _currentCard = null;
 
-// ====== 查询 ======
+// ====== 查询（模糊搜索） ======
+var searchTimer;
 function doQuery() {
-  var id = document.getElementById('cardInput').value.trim().toUpperCase();
-  if (!id) return toastMsg('请输入卡号', 'warn');
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(_doQuery, 250);
+}
 
+function _doQuery() {
+  var q = document.getElementById('cardInput').value.trim();
   var cards = window.__CARD_DATA__ && window.__CARD_DATA__.cards || [];
-  var card = cards.find(function(c) { return c.id.toUpperCase() === id; });
 
-  if (!card) {
+  if (!q) {
+    document.getElementById('matchList').classList.add('hidden');
     document.getElementById('resultCard').classList.add('hidden');
-    document.getElementById('emptyState').classList.remove('hidden');
-    document.getElementById('emptyState').innerHTML = '<p class="text-3xl mb-2">😕</p><p class="text-sm text-gray-400">未找到该卡号，请确认后重试</p>';
     return;
   }
 
-  document.getElementById('emptyState').classList.add('hidden');
+  // 模糊匹配：姓名、手机号包含
+  var matches = cards.filter(function(c) {
+    var phone = c.phone || '';
+    return c.name.indexOf(q) !== -1 || phone.indexOf(q) !== -1;
+  });
 
-  var used = card.used || 0;
-  var total = card.total || 4;
-  var remain = Math.max(0, total - used);
-  var expireDate = card.expireDate || '';
-
-  document.getElementById('cardName').textContent = card.name;
-  document.getElementById('cardId').textContent = card.id;
-  document.getElementById('totalCups').textContent = total;
-  document.getElementById('usedCups').textContent = used;
-  document.getElementById('remainCups').textContent = remain;
-  document.getElementById('progUsed').textContent = used;
-  document.getElementById('progRemain').textContent = remain;
-  document.getElementById('progTotal').textContent = total;
-  document.getElementById('progressBar').style.width = total > 0 ? (used / total * 100) + '%' : '0%';
-
-  var expireEl = document.getElementById('expireInfo');
-  if (expireDate) {
-    var daysLeft = Math.ceil((new Date(expireDate) - new Date()) / 86400000);
-    if (daysLeft <= 0) {
-      expireEl.innerHTML = '<span class="text-red-500 font-bold">⚠️ 已过期</span><span class="text-gray-400 ml-2">' + expireDate + '</span>';
-    } else if (daysLeft <= 3) {
-      expireEl.innerHTML = '<span class="text-amber-500 font-bold">⏰ 即将到期</span><span class="text-gray-400 ml-2">' + expireDate + '（剩' + daysLeft + '天）</span>';
-    } else {
-      expireEl.innerHTML = '<span class="text-gray-400">有效期至</span> <span class="font-bold text-gray-600">' + expireDate + '</span><span class="text-gray-400">（剩' + daysLeft + '天）</span>';
-    }
-  } else {
-    expireEl.innerHTML = '';
+  if (matches.length === 0) {
+    document.getElementById('resultCard').classList.add('hidden');
+    document.getElementById('matchList').classList.remove('hidden');
+    document.getElementById('matchList').innerHTML = '<div class="text-center text-sm text-gray-400 py-4">未找到匹配的月卡，请确认姓名或手机号</div>';
+    return;
   }
 
-  var share = '我在黑狗酒吧办了喝酒月卡！🍺\n\n'
-    + '月卡余额：' + total + '杯（已用' + used + '杯）\n'
-    + '卡号：' + card.id + '\n'
-    + (expireDate ? '有效期：' + expireDate + '\n\n' : '\n')
-    + '198元/月，精酿特调畅饮\n'
-    + '来黑狗一起喝一杯 🐕';
+  if (matches.length === 1) {
+    document.getElementById('matchList').classList.add('hidden');
+    renderCardResult(matches[0]);
+  } else {
+    document.getElementById('resultCard').classList.add('hidden');
+    var listEl = document.getElementById('matchList');
+    listEl.classList.remove('hidden');
+    listEl._matches = matches;
+    var sm = { active:{l:'生效中',c:'text-green-600'}, warning:{l:'即将到期',c:'text-yellow-600'}, expired:{l:'已过期',c:'text-red-500'}, used:{l:'已用完',c:'text-gray-400'} };
+    listEl.innerHTML = '<p class="text-sm font-bold text-gray-700">找到 ' + matches.length + ' 张匹配的卡：</p>'
+      + matches.map(function(c, i) {
+          var s = sm[c.status] || {l: c.status, c: 'text-gray-400'};
+          var icon = (c.name || '?')[0];
+          return '<button onclick="selectCard(' + i + ')" class="w-full px-4 py-3 bg-gray-50 rounded-xl text-left hover:bg-red-50 active:scale-[0.98] transition-all border border-gray-100 flex items-center gap-3">'
+            + '<div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-500 font-bold text-sm shrink-0">' + icon + '</div>'
+            + '<div class="flex-1"><div class="font-bold text-sm">' + c.name + '</div>'
+            + '<div class="text-xs text-gray-400">' + c.id + ' · 剩余 ' + (c.total - c.used) + '/' + c.total + ' 杯</div></div>'
+            + '<span class="text-xs font-bold ' + s.c + '">' + s.l + '</span>'
+            + '</button>';
+        }).join('');
+  }
+}
 
-  document.getElementById('copyText').textContent = share;
+function selectCard(idx) {
+  var matches = document.getElementById('matchList')._matches || [];
+  if (matches[idx]) renderCardResult(matches[idx]);
+}
+
+// ====== 渲染卡片详情 ======
+function renderCardResult(card) {
+  _currentCard = card;
+  document.getElementById('matchList').classList.add('hidden');
+
+  var remain = card.total - card.used;
+  var pct = card.total > 0 ? (remain / card.total) * 100 : 0;
+
+  var sMap = {
+    active:  { label: '生效中',   color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+    warning: { label: '即将到期', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+    expired: { label: '已过期',   color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+    used:    { label: '已用完',   color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+  };
+  var s = sMap[card.status] || { label: card.status, color: '#6b7280', bg: 'rgba(107,114,128,0.1)' };
+
+  document.getElementById('statusBadge').innerHTML = '<span class="inline-block px-3 py-1 rounded-full text-xs font-bold" style="background:' + s.bg + ';color:' + s.color + '">' + s.label + '</span>';
+
+  document.getElementById('remainCups').textContent = remain;
+  document.getElementById('totalCupsEl').textContent = ' / ' + card.total;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressBar').style.background = s.color;
+
+  document.getElementById('cardId').textContent = card.id;
+  document.getElementById('cardName').textContent = card.name;
+  document.getElementById('buyDate').textContent = card.buyDate || '-';
+  document.getElementById('expireDate').textContent = card.expireDate || '-';
+
+  var daysLeft = card.expireDate ? Math.max(0, Math.ceil((new Date(card.expireDate) - new Date()) / 86400000)) : 0;
+  var daysEl = document.getElementById('daysLeft');
+  if (card.status === 'expired') {
+    daysEl.textContent = '已过期';
+    daysEl.style.color = '#ef4444';
+  } else if (card.status === 'used') {
+    daysEl.textContent = '—';
+    daysEl.style.color = '#6b7280';
+  } else {
+    daysEl.textContent = daysLeft + ' 天';
+    daysEl.style.color = s.color;
+  }
+
+  // 基金余额
+  var walletBox = document.getElementById('walletBox');
+  if (card.walletBalance > 0) {
+    walletBox.classList.remove('hidden');
+    document.getElementById('walletBalance').textContent = '¥' + card.walletBalance.toFixed(2);
+  } else {
+    walletBox.classList.add('hidden');
+  }
+
+  // 邀请码
+  var inviteBox = document.getElementById('inviteBox');
+  if (card.inviteCode) {
+    inviteBox.classList.remove('hidden');
+    document.getElementById('inviteCode').textContent = card.inviteCode;
+    document.getElementById('inviteCount').textContent = '本月已邀请 ' + (card.inviteCount || 0) + ' 人 · 每人获赠饮券+¥9.90基金';
+  } else {
+    inviteBox.classList.add('hidden');
+  }
+
+  // 赠饮券
+  var ticketsBox = document.getElementById('ticketsBox');
+  var tickets = card.tickets || [];
+  if (tickets.length > 0) {
+    ticketsBox.classList.remove('hidden');
+    ticketsBox.innerHTML = '<p class="text-xs text-pink-600 font-bold mb-2">🎁 赠饮券（' + tickets.length + '张可用）</p>'
+      + tickets.map(function(t) {
+          var tDaysLeft = Math.max(0, Math.ceil((new Date(t.expireDate) - new Date()) / 86400000));
+          var expShort = (t.expireDate || '').replace(/^\d{4}-/, '');
+          return '<div class="bg-white rounded-xl p-3 mb-2 last:mb-0">'
+            + '<div class="flex items-center justify-between mb-1">'
+            + '<span class="text-xs font-bold text-pink-700">兑换码：' + (t.redeemCode || '-') + '</span>'
+            + '<span class="text-xs text-pink-400">' + tDaysLeft + '天有效（至' + expShort + '）</span>'
+            + '</div>'
+            + (t.sourceDetail ? '<p class="text-xs text-pink-500">来源：' + t.sourceDetail + '</p>' : '')
+            + '<button onclick="copyGiftShare(\'' + (t.redeemCode || '-') + '\', \'' + expShort + '\')" class="mt-1.5 px-3 py-1.5 bg-pink-500 text-white rounded-lg text-xs font-bold hover:bg-pink-600 active:scale-95 transition-all w-full">📤 转发给朋友（复制文案）</button>'
+            + '</div>';
+        }).join('');
+  } else {
+    ticketsBox.classList.add('hidden');
+  }
+
+  // 底部提示
+  var tip = document.getElementById('footerTip');
+  var renewPrice = 198 - (card.walletBalance || 0);
+  if (renewPrice < 0) renewPrice = 0;
+  if (card.status === 'warning') {
+    tip.innerHTML = '⚠️ 卡即将到期！续卡 ¥198' + (card.walletBalance > 0 ? '（基金可抵扣 ¥' + card.walletBalance.toFixed(2) + '，实付 ¥' + renewPrice.toFixed(2) + '）' : '') + ' · 续卡即送赠饮券 🎁';
+    tip.className = 'mt-3 text-xs text-yellow-600 text-center font-bold';
+  } else if (card.status === 'active') {
+    tip.textContent = '到店出示此页面给店员核销 · 每天限1杯';
+    tip.className = 'mt-3 text-xs text-gray-400 text-center';
+  } else {
+    tip.innerHTML = '此卡已失效，联系店员续卡可激活（续卡送赠饮券 🎁）';
+    tip.className = 'mt-3 text-xs text-red-400 text-center';
+  }
+
+  // 复制文案占位
   document.getElementById('resultCard').classList.remove('hidden');
 }
 
-// ====== 复制 ======
-function doCopy() {
-  var text = document.getElementById('copyText').textContent;
+// ====== 复制邀请文案 ======
+function copyInviteText() {
+  var card = _currentCard;
+  if (!card) return;
+  var text = '黑狗酒吧 Bar Blackdog · 喝酒月卡\n\n'
+    + '🍺 198元/月，4杯精酿特调\n'
+    + '📍 长沙 · 每日19:00-02:00\n\n'
+    + '用我的邀请码办卡，你我都得赠饮券！\n'
+    + '我的邀请码：' + card.inviteCode + '\n\n'
+    + '办卡时报这个码就行~来一起喝一杯 🐕';
+  copyToClipboard(text, '已复制邀请文案，快去分享吧 🍻');
+}
+
+// ====== 复制赠饮券分享 ======
+function copyGiftShare(code, expShort) {
+  var text = '🎁 送你一张 Bar Blackdog 赠饮券！\n\n'
+    + '兑换码：' + code + '\n'
+    + '有效期至：' + expShort + '\n\n'
+    + '📍 长沙 · Bar Blackdog\n'
+    + '到店出示兑换码给店员即可使用\n'
+    + '来喝一杯吗 🐕';
+  copyToClipboard(text, '已复制赠饮券文案！');
+}
+
+// ====== 剪贴板 ======
+function copyToClipboard(text, successMsg) {
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(function() { toastMsg('已复制，快去转发给朋友 🍻'); });
+    navigator.clipboard.writeText(text).then(function() { toastMsg(successMsg); });
   } else {
     var ta = document.createElement('textarea');
     ta.value = text;
@@ -243,32 +333,19 @@ function doCopy() {
     document.body.appendChild(ta);
     ta.select(); document.execCommand('copy');
     document.body.removeChild(ta);
-    toastMsg('已复制，快去转发给朋友 🍻');
+    toastMsg(successMsg);
   }
 }
 
 // ====== Toast ======
 var toastTimer;
-function toastMsg(msg, type) {
-  type = type || 'success';
+function toastMsg(msg) {
   var el = document.getElementById('toast');
   el.textContent = msg;
-  el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl text-white font-medium text-sm toast shadow-lg '
-    + (type === 'warn' ? 'bg-amber-500' : 'bg-gray-800');
+  el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl text-white font-medium text-sm toast shadow-lg bg-gray-800';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function() { el.classList.add('hidden'); }, 3000);
 }
-
-// ====== URL 参数自动查询 ======
-(function() {
-  var params = new URLSearchParams(window.location.search);
-  var cardId = params.get('card');
-  if (cardId) {
-    showQuery();
-    document.getElementById('cardInput').value = cardId;
-    doQuery();
-  }
-})();
 </script>
 </body>
 </html>

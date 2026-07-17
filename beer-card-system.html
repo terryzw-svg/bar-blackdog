@@ -2294,15 +2294,30 @@ function exportForPages() {
   var data = JSON.parse(raw);
   
   // 过滤掉 TEST 卡，计算已用杯数
+  var walletMap = {};
+  (data.wallets || []).forEach(function(w) { walletMap[w.inviteCode] = w.balance || 0; });
   var cards = (data.cards || []).filter(function(c) { return c.id !== 'TEST'; }).map(function(c) {
     var used = (data.records || []).filter(function(r) { return r.cardId === c.id; }).length;
+    var tickets = (data.giftTickets || []).filter(function(t) { return t.ownerCardId === c.id && (t.status === 'unused' || t.status === 'transferred'); });
+    // count invites this month
+    var thisMonth = new Date().toISOString().substring(0, 7);
+    var inviteCount = (data.cards || []).filter(function(oc) { return oc.invitedBy === c.inviteCode && (oc.buyDate || '').startsWith(thisMonth); }).length;
     return {
       id: c.id,
       name: c.name,
+      phone: c.phone || '',
       total: c.total || 4,
       used: used,
       startDate: c.startDate || '',
-      expireDate: c.expireDate || ''
+      expireDate: c.expireDate || '',
+      buyDate: c.buyDate || '',
+      status: c.status || 'active',
+      inviteCode: c.inviteCode || '',
+      inviteCount: inviteCount,
+      walletBalance: walletMap[c.inviteCode] || 0,
+      tickets: tickets.map(function(t) {
+        return { redeemCode: t.redeemCode || t.id, expireDate: t.expireDate, sourceDetail: t.sourceDetail || '' };
+      })
     };
   });
 
