@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>黑狗酒吧 · 喝酒月卡</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --card-bg: #1a1a1a;
+    --gold: #c9a96e;
+    --gold-dim: #8b7355;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --danger: #c0392b;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ====== 首页 ====== */
+  .home-page { display: block; }
+  .query-page { display: none; }
+
+  .hero {
+    text-align: center;
+    padding: 48px 24px 32px;
+  }
+  .hero .logo {
+    font-size: 48px;
+    margin-bottom: 8px;
+  }
+  .hero h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+  .hero .subtitle {
+    font-size: 14px;
+    color: var(--text-dim);
+    letter-spacing: 4px;
+  }
+
+  .section {
+    margin: 0 20px 28px;
+  }
+  .section h2 {
+    font-size: 16px;
+    color: var(--gold);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section h2::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--gold-dim), transparent);
+  }
+
+  .plan-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(201,169,110,.2);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+  .plan-card .price {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  .plan-card .price span {
+    font-size: 16px;
+    font-weight: 400;
+  }
+  .plan-card .desc {
+    margin-top: 8px;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+  .plan-card ul {
+    margin-top: 12px;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .plan-card ul li {
+    background: rgba(201,169,110,.1);
+    color: var(--gold);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  .action-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(201,169,110,.3);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+  }
+  .action-card p {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  .btn {
+    display: inline-block;
+    background: var(--gold);
+    color: #0a0a0a;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 12px 32px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    letter-spacing: 1px;
+  }
+  .btn:active { opacity: .85; }
+  .btn-block { display: block; width: 100%; }
+
+  .pay-methods {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .pay-methods span {
+    background: var(--card-bg);
+    border: 1px solid rgba(255,255,255,.1);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  .rules {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+  .rules li {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    padding-left: 16px;
+    position: relative;
+  }
+  .rules li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--gold);
+  }
+
+  footer {
+    text-align: center;
+    padding: 32px 20px;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ====== 查询页 ====== */
+  .query-page .top-bar {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    gap: 12px;
+  }
+  .query-page .back-btn {
+    background: none;
+    border: none;
+    color: var(--gold);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .query-page .top-bar h1 {
+    font-size: 18px;
+    color: var(--gold);
+  }
+
+  .query-form {
+    margin: 16px 20px 24px;
+  }
+  .query-form label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .query-form .input-row {
+    display: flex;
+    gap: 8px;
+  }
+  .query-form input {
+    flex: 1;
+    background: var(--card-bg);
+    border: 1px solid rgba(201,169,110,.3);
+    color: var(--text);
+    font-size: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    outline: none;
+    letter-spacing: 1px;
+  }
+  .query-form input:focus {
+    border-color: var(--gold);
+  }
+  .query-form input::placeholder {
+    color: #555;
+    letter-spacing: 0;
+  }
+  .query-form .btn {
+    flex-shrink: 0;
+    padding: 12px 20px;
+  }
+
+  .result-card {
+    margin: 0 20px 24px;
+    background: var(--card-bg);
+    border: 1px solid rgba(201,169,110,.4);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: none;
+  }
+  .result-card.show { display: block; }
+
+  .result-card .card-name {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  .result-card .card-id {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .result-card .stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 16px;
+  }
+  .result-card .stat {
+    text-align: center;
+  }
+  .result-card .stat .num {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  .result-card .stat .label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .result-card .expire {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .result-card .expire.warn { color: var(--danger); }
+  .result-card .divider {
+    margin: 16px 0;
+    border: none;
+    border-top: 1px solid rgba(255,255,255,.06);
+  }
+  .result-card .copy-section {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .result-card .copy-text {
+    flex: 1;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: all;
+  }
+  .result-card .copy-btn {
+    flex-shrink: 0;
+    background: rgba(201,169,110,.15);
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    font-size: 13px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .result-card .copy-btn:active { background: rgba(201,169,110,.3); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: #0a0a0a;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 24px;
+    border-radius: 8px;
+    z-index: 999;
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ========== 首页 ========== -->
+<div class="home-page" id="homePage">
+  <div class="hero">
+    <div class="logo">🐕</div>
+    <h1>BLACKDOG BAR</h1>
+    <div class="subtitle">THE DRINKING SOCIETY</div>
+  </div>
+
+  <div class="section">
+    <h2>🍺 喝酒月卡</h2>
+    <div class="plan-card">
+      <div class="price">198<span>元 / 月</span></div>
+      <div class="desc">30天内享受4杯精酿特调</div>
+      <ul>
+        <li>每天限1杯</li>
+        <li>可赠饮好友</li>
+        <li>邀请有奖</li>
+        <li>到期自动失效</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>💰 购买方式</h2>
+    <div class="action-card">
+      <p>到店直接购买，或扫描下方二维码付款</p>
+      <div class="pay-methods">
+        <span>💳 到店付款</span>
+        <span>📱 微信/支付宝</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🔍 查我的卡</h2>
+    <div class="action-card">
+      <p>输入卡号查看剩余杯数和有效期</p>
+      <button class="btn btn-block" onclick="showQuery()">查询我的月卡</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📋 使用规则</h2>
+    <ul class="rules">
+      <li>月卡有效期 30 天，从购买日起算</li>
+      <li>每天限核销 1 杯，不可累积</li>
+      <li>可赠饮好友（从本人卡扣减）</li>
+      <li>邀请好友办卡，双方各得 1 杯赠饮券</li>
+      <li>月卡不可转让、不可退款</li>
+      <li>最终解释权归黑狗酒吧所有</li>
+    </ul>
+  </div>
+
+  <footer>
+    BLACKDOG BAR · 长沙市<br>
+    营业时间：每日 19:00 - 02:00
+  </footer>
+</div>
+
+<!-- ========== 查询页 ========== -->
+<div class="query-page" id="queryPage">
+  <div class="top-bar">
+    <button class="back-btn" onclick="showHome()">←</button>
+    <h1>查询月卡</h1>
+  </div>
+
+  <div class="query-form">
+    <label>请输入你的卡号</label>
+    <div class="input-row">
+      <input type="text" id="cardInput" placeholder="例如: MK-20260706" autocomplete="off">
+      <button class="btn" onclick="doQuery()">查询</button>
+    </div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="card-name" id="cardName"></div>
+    <div class="card-id" id="cardId"></div>
+    <div class="stats">
+      <div class="stat">
+        <div class="num" id="totalCups">-</div>
+        <div class="label">总杯数</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="usedCups">-</div>
+        <div class="label">已用</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="remainCups">-</div>
+        <div class="label">剩余</div>
+      </div>
+    </div>
+    <div class="expire" id="expireInfo"></div>
+    <hr class="divider">
+    <div class="copy-section">
+      <div class="copy-text" id="copyText"></div>
+      <button class="copy-btn" onclick="doCopy()">📋 复制<br>转发</button>
+    </div>
+  </div>
+
+  <div class="empty-state" id="emptyState">
+    <div class="icon">🔍</div>
+    <p>输入卡号查看月卡信息</p>
+  </div>
+</div>
+
+<script src="cards-data.js"></script>
+<script>
+// ====== 页面切换 ======
+function showQuery() {
+  document.getElementById('homePage').style.display = 'none';
+  document.getElementById('queryPage').style.display = 'block';
+  document.getElementById('cardInput').focus();
+}
+function showHome() {
+  document.getElementById('homePage').style.display = 'block';
+  document.getElementById('queryPage').style.display = 'none';
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('emptyState').style.display = 'block';
+  document.getElementById('cardInput').value = '';
+}
+
+// ====== 查询 ======
+function doQuery() {
+  var id = document.getElementById('cardInput').value.trim().toUpperCase();
+  if (!id) return toastMsg('请输入卡号');
+
+  var cards = window.__CARD_DATA__ && window.__CARD_DATA__.cards || [];
+  var card = cards.find(function(c) { return c.id.toUpperCase() === id; });
+
+  if (!card) {
+    document.getElementById('resultCard').classList.remove('show');
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('emptyState').innerHTML = '<div class="icon">😕</div><p>未找到该卡号，请确认后重试</p>';
+    return;
+  }
+
+  document.getElementById('emptyState').style.display = 'none';
+
+  var used = card.used || 0;
+  var total = card.total || 4;
+  var remain = Math.max(0, total - used);
+  var expireDate = card.expireDate || '';
+
+  document.getElementById('cardName').textContent = card.name;
+  document.getElementById('cardId').textContent = card.id;
+  document.getElementById('totalCups').textContent = total;
+  document.getElementById('usedCups').textContent = used;
+  document.getElementById('remainCups').textContent = remain;
+
+  var expireEl = document.getElementById('expireInfo');
+  if (expireDate) {
+    var daysLeft = Math.ceil((new Date(expireDate) - new Date()) / 86400000);
+    if (daysLeft <= 0) {
+      expireEl.textContent = '⚠️ 已过期 · ' + expireDate;
+      expireEl.className = 'expire warn';
+    } else if (daysLeft <= 3) {
+      expireEl.textContent = '⏰ 即将到期 · ' + expireDate + '（剩' + daysLeft + '天）';
+      expireEl.className = 'expire warn';
+    } else {
+      expireEl.textContent = '有效期至 ' + expireDate + '（剩' + daysLeft + '天）';
+      expireEl.className = 'expire';
+    }
+  } else {
+    expireEl.textContent = '';
+    expireEl.className = 'expire';
+  }
+
+  // 生成转发文案
+  var share = '我在黑狗酒吧 BLACKDOG BAR 办了喝酒月卡！🍺\n\n'
+    + '月卡余额：' + total + '杯（已用' + used + '杯）\n'
+    + '卡号：' + card.id + '\n'
+    + (expireDate ? '有效期：' + expireDate + '\n\n' : '\n')
+    + '198元/月，精酿特调畅饮\n'
+    + '来一起喝一杯吗？🐕';
+
+  document.getElementById('copyText').textContent = share;
+  document.getElementById('resultCard').classList.add('show');
+}
+
+// ====== 复制 ======
+function doCopy() {
+  var text = document.getElementById('copyText').textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      toastMsg('已复制，快去转发给朋友吧 🍻');
+    });
+  } else {
+    // fallback
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toastMsg('已复制，快去转发给朋友吧 🍻');
+  }
+}
+
+// ====== Toast ======
+var toastTimer;
+function toastMsg(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2000);
+}
+
+// ====== URL 参数自动查询 (用于扫码入口) ======
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var cardId = params.get('card');
+  if (cardId) {
+    showQuery();
+    document.getElementById('cardInput').value = cardId;
+    doQuery();
+  }
+})();
+</script>
+</body>
+</html>
