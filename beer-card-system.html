@@ -1,0 +1,2464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>喝酒月卡</title>
+<script src="tailwind-play-cdn.js"></script>
+<style>
+  * { font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .card-shadow { box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .tab-active { border-bottom: 3px solid #e43f5a; color: #e43f5a; }
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+  .slide-in { animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from { opacity:0; transform:translateX(20px) } to { opacity:1; transform:translateX(0) } }
+  .toast { animation: toastIn 0.3s ease, toastOut 0.3s ease 2.5s forwards; }
+  @keyframes toastIn { from { opacity:0; transform:translateY(-20px) } to { opacity:1; transform:translateY(0) } }
+  @keyframes toastOut { from { opacity:1 } to { opacity:0 } }
+  .progress-bar { transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+  .empty-state { min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+</style>
+</head>
+<body class="bg-gray-50 min-h-[100dvh]">
+
+<div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden px-6 py-3 rounded-xl text-white font-medium text-sm toast shadow-lg"></div>
+
+<div class="max-w-5xl mx-auto px-4 py-6">
+  <!-- HEADER -->
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-black text-gray-900">喝酒月卡 <button onclick="undoLast()" id="undoBtn" class="hidden ml-2 px-3 py-1 text-xs font-bold bg-amber-50 text-amber-700 rounded-lg border border-amber-200 hover:bg-amber-100 active:scale-95 transition-all">↩ 撤销</button></h1>
+      <p class="text-sm text-gray-400 mt-0.5">198元/4杯 · 每天1杯 · 可转赠1次 · 邀请有奖</p>
+    <div class="flex items-center gap-2 mt-1">
+      <button onclick="exportData()" class="text-xs text-gray-300 hover:text-blue-400 underline transition-all">导出备份</button>
+      <span class="text-gray-300 text-xs">·</span>
+      <button onclick="document.getElementById('importFileInput').click()" class="text-xs text-gray-300 hover:text-green-400 underline transition-all">导入恢复</button>
+      <input type="file" id="importFileInput" onchange="importData(event)" accept=".json" class="hidden">
+      <span class="text-gray-300 text-xs">·</span>
+      <!-- 重置按钮已隐藏，如需使用请在控制台执行 resetAllData() -->
+    </div>
+    </div>
+    <div class="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
+      <button onclick="switchView('boss')" id="btnBoss" class="px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-red-500 transition-all">老板端</button>
+      <button onclick="switchView('todo')" id="btnTodo" class="px-4 py-2 rounded-lg text-sm font-bold text-gray-400 transition-all">📋 今日待办</button>
+      <button onclick="switchView('customer')" id="btnCustomer" class="px-4 py-2 rounded-lg text-sm font-bold text-gray-400 transition-all">顾客端</button>
+    </div>
+  </div>
+
+  <!-- ========== BOSS VIEW ========== -->
+  <div id="bossView" class="fade-in">
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div class="bg-white rounded-2xl p-4 card-shadow">
+        <p class="text-xs text-gray-400 font-medium">总卡数</p>
+        <p class="text-2xl font-black text-gray-900" id="statTotal">0</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 card-shadow">
+        <p class="text-xs text-gray-400 font-medium">生效中</p>
+        <p class="text-2xl font-black text-green-500" id="statActive">0</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 card-shadow">
+        <p class="text-xs text-gray-400 font-medium">即将到期</p>
+        <p class="text-2xl font-black text-yellow-500" id="statWarning">0</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 card-shadow">
+        <p class="text-xs text-gray-400 font-medium">今日核销</p>
+        <p class="text-2xl font-black text-red-400" id="statToday">0</p>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <button onclick="showAddCardModal()" class="px-5 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 active:scale-95 transition-all shadow-lg shadow-red-200 whitespace-nowrap">
+        + 售出新卡
+      </button>
+      <input type="text" id="bossSearch" oninput="renderBossView()" placeholder="搜姓名/手机号任意几位/卡号/邀请码..."
+        class="flex-1 min-w-[180px] px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none">
+      <select id="bossFilter" onchange="renderBossView()" class="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none">
+        <option value="all">全部状态</option>
+        <option value="active">生效中</option>
+        <option value="warning">即将到期</option>
+        <option value="expired">已过期</option>
+        <option value="used">已用完</option>
+      </select>
+      <button onclick="showRecords()" class="px-4 py-2.5 bg-gray-100 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-all whitespace-nowrap">
+        核销记录
+      </button>
+      <button onclick="toggleDashboard()" id="btnDashboard" class="px-4 py-2.5 bg-gray-100 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-all whitespace-nowrap">
+        📊 数据中心
+      </button>
+      <button onclick="showQuickAddModal()" class="px-4 py-2.5 bg-blue-50 rounded-xl text-sm font-bold text-blue-600 hover:bg-blue-100 active:scale-95 transition-all whitespace-nowrap border border-blue-200">
+        📋 快速录卡
+      </button>
+      <div class="flex items-center gap-1 bg-pink-50 rounded-xl border border-pink-200 px-2">
+        <input type="text" id="redeemCodeInput" onkeydown="if(event.key==='Enter')redeemGiftCode()" placeholder="兑换码..."
+          class="w-20 py-2 bg-transparent text-sm outline-none text-pink-700 font-bold placeholder-pink-300">
+        <button onclick="redeemGiftCode()" class="px-2 py-1.5 text-xs font-bold text-pink-600 hover:text-pink-800 transition-all whitespace-nowrap">核销券</button>
+      </div>
+      <button onclick="showReferralView()" class="px-4 py-2.5 bg-amber-50 rounded-xl text-sm font-bold text-amber-700 hover:bg-amber-100 active:scale-95 transition-all whitespace-nowrap border border-amber-200">
+        返佣管理
+      </button>
+    </div>
+
+    <!-- Dashboard Panel -->
+    <div id="dashboardPanel" class="hidden bg-white rounded-2xl p-5 card-shadow mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <h3 class="text-sm font-black text-gray-900">📊 数据中心</h3>
+          <select id="dashMonth" onchange="updateDashboard()" class="px-2 py-1 text-xs font-bold bg-gray-100 rounded-lg border-0 outline-none">
+            <option value="all">全部</option>
+          </select>
+        </div>
+        <button onclick="toggleDashboard()" class="text-xs text-gray-400 hover:text-gray-600">收起</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-gray-50 rounded-xl p-3">
+          <p class="text-xs text-gray-400">总售卡数</p>
+          <p class="text-xl font-black text-gray-900" id="dashTotalCards">0</p>
+          <p class="text-xs text-gray-400 mt-0.5">含新购 + 续卡</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-3">
+          <p class="text-xs text-green-500">新购卡数</p>
+          <p class="text-xl font-black text-green-600" id="dashNewCards">0</p>
+          <p class="text-xs text-green-400 mt-0.5">首次购买</p>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-3">
+          <p class="text-xs text-blue-500">续卡次数</p>
+          <p class="text-xl font-black text-blue-600" id="dashRenewCards">0</p>
+          <p class="text-xs text-blue-400 mt-0.5">含手动 + 钱包抵扣</p>
+        </div>
+        <div class="bg-red-50 rounded-xl p-3">
+          <p class="text-xs text-red-400">今日核销</p>
+          <p class="text-xl font-black text-red-500" id="dashTodayVerify">0</p>
+          <p class="text-xs text-red-300 mt-0.5">杯</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+        <div class="bg-amber-50 rounded-xl p-3">
+          <p class="text-xs text-amber-500">总营收</p>
+          <p class="text-xl font-black text-amber-600" id="dashRevenue">¥0</p>
+          <p class="text-xs text-amber-400 mt-0.5">实收 = 卡数×198 - 基金抵扣</p>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-3">
+          <p class="text-xs text-purple-500">总返佣</p>
+          <p class="text-xl font-black text-purple-600" id="dashCommission">¥0</p>
+          <p class="text-xs text-purple-400 mt-0.5">已实时结算</p>
+        </div>
+        <div class="bg-orange-50 rounded-xl p-3">
+          <p class="text-xs text-orange-500">活跃卡数</p>
+          <p class="text-xl font-black text-orange-600" id="dashActiveCards">0</p>
+          <p class="text-xs text-orange-400 mt-0.5">生效中 + 即将到期</p>
+        </div>
+        <div class="bg-teal-50 rounded-xl p-3">
+          <p class="text-xs text-teal-500">邀请转化率</p>
+          <p class="text-xl font-black text-teal-600" id="dashInviteRate">0%</p>
+          <p class="text-xs text-teal-400 mt-0.5">有邀请码的卡占比</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card List -->
+    <div id="bossCardList" class="space-y-3"></div>
+    <div id="bossEmpty" class="hidden empty-state text-gray-400">
+      <p class="text-5xl mb-3">📭</p>
+      <p class="text-sm">还没有月卡，卖出第一张吧</p>
+    </div>
+  </div>
+
+  <!-- ========== TODO VIEW ========== -->
+  <div id="todoView" class="hidden fade-in">
+    <div class="max-w-lg mx-auto" id="todoList"></div>
+  </div>
+
+  <!-- ========== CUSTOMER VIEW ========== -->
+  <div id="customerView" class="hidden fade-in">
+    <div class="max-w-md mx-auto mb-6">
+      <p class="text-center text-sm text-gray-400 mb-3">搜姓名、手机号、邀请码或卡号查看月卡</p>
+      <div class="flex gap-2">
+        <input type="text" id="custSearch" onkeydown="if(event.key==='Enter')searchCustomerCard()" placeholder="搜姓名/手机号/邀请码/卡号..."
+          class="flex-1 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-base focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none">
+        <button onclick="searchCustomerCard()" class="px-6 py-3 bg-red-500 text-white rounded-2xl font-bold hover:bg-red-600 active:scale-95 transition-all">
+          查询
+        </button>
+      </div>
+    </div>
+    <div id="custResult" class="hidden max-w-md mx-auto fade-in"></div>
+    <div id="custEmpty" class="empty-state text-gray-400">
+      <p class="text-5xl mb-4">🎫</p>
+      <p class="text-sm">输入卡号或手机号查看你的喝酒月卡</p>
+    </div>
+  </div>
+
+  <!-- ========== RECORDS VIEW ========== -->
+  <div id="recordView" class="hidden fade-in">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-black text-gray-900">核销记录</h2>
+      <button onclick="closeRecords()" class="text-sm text-red-400 font-bold hover:text-red-500 transition-all">← 返回卡片列表</button>
+    </div>
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <button onclick="setRecordPeriod('today')" id="recBtnToday" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all">今天</button>
+      <button onclick="setRecordPeriod('month')" id="recBtnMonth" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">本月</button>
+      <button onclick="setRecordPeriod('all')" id="recBtnAll" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">全部</button>
+      <span class="text-gray-300 mx-1">|</span>
+      <button onclick="setRecordFilter('all')" id="recFilterAll" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">全部类型</button>
+      <button onclick="setRecordFilter('card')" id="recFilterCard" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">🍺 月卡</button>
+      <button onclick="setRecordFilter('gift')" id="recFilterGift" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">🎁 赠饮</button>
+    </div>
+    <div id="recordStats" class="mb-4"></div>
+    <div id="recordList" class="space-y-2"></div>
+    <div id="recordEmpty" class="hidden empty-state text-gray-400">
+      <p class="text-3xl mb-2">📋</p>
+      <p class="text-sm">暂无核销记录</p>
+    </div>
+  </div>
+
+  <!-- ========== REFERRAL VIEW ========== -->
+  <div id="referralView" class="hidden fade-in">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-black text-gray-900">邀请返佣</h2>
+      <button onclick="closeReferralView()" class="text-sm text-red-400 font-bold hover:text-red-500 transition-all">← 返回卡片列表</button>
+    </div>
+    <p class="text-xs text-gray-400 mb-4">规则：邀请1人办卡 → 你得1杯赠饮 + ¥9.90基金 | 朋友续卡 → 你基金+5%</p>
+
+    <!-- Month Selector -->
+    <div class="flex items-center gap-3 mb-4">
+      <label class="text-sm font-bold text-gray-600">查看月份：</label>
+      <select id="referralMonth" onchange="renderReferralView()" class="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm outline-none"></select>
+    </div>
+
+    <div id="referralList" class="space-y-4"></div>
+    <div id="referralEmpty" class="hidden empty-state text-gray-400">
+      <p class="text-3xl mb-2">💰</p>
+      <p class="text-sm">该月暂无邀请记录</p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ADD CARD MODAL ========== -->
+<div id="addCardModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl p-6 w-full max-w-md card-shadow slide-in">
+    <h3 class="text-lg font-black text-gray-900 mb-4">售出新卡</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-bold text-gray-500 mb-1 block">顾客姓名 *</label>
+        <input id="addName" class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none" placeholder="必填" autocomplete="off">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-gray-500 mb-1 block">手机号 *</label>
+        <input id="addPhone" type="tel" class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none" placeholder="必填" autocomplete="off">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-bold text-gray-500 mb-1 block">总杯数</label>
+          <input id="addTotal" type="number" value="4" min="1" max="20" class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-gray-500 mb-1 block">有效期（默认30天）</label>
+          <input id="addDays" type="number" value="30" min="1" max="365" class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-gray-500 mb-1 block">邀请码（可选）</label>
+        <div class="flex gap-2">
+          <input id="addInviteCode" class="flex-1 px-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none" placeholder="如老会员推荐，填写其邀请码" autocomplete="off">
+          <button onclick="lookupInviteCode()" class="px-3 py-2.5 bg-amber-50 rounded-xl text-xs font-bold text-amber-700 hover:bg-amber-100 transition-all border border-amber-200 whitespace-nowrap">验证</button>
+        </div>
+        <p id="inviteCodeHint" class="text-xs text-gray-400 mt-1 hidden"></p>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-gray-500 mb-1 block">备注（可选）</label>
+        <input id="addNote" class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all outline-none" placeholder="续卡/转让信息..." autocomplete="off">
+      </div>
+    </div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="closeAddCardModal()" class="flex-1 px-4 py-2.5 bg-gray-100 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-200 active:scale-95 transition-all">取消</button>
+      <button onclick="addCard()" class="flex-1 px-4 py-2.5 bg-red-500 rounded-xl text-sm font-bold text-white hover:bg-red-600 active:scale-95 transition-all">确认售出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ACTION MODAL ========== -->
+<div id="actionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onclick="if(event.target===this)closeActionModal()">
+  <div class="bg-white rounded-3xl p-6 w-full max-w-sm card-shadow slide-in" id="actionContent"></div>
+</div>
+
+<!-- ========== QUICK ADD MODAL ========== -->
+<div id="quickAddModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl p-6 w-full max-w-md card-shadow slide-in">
+    <h3 class="text-lg font-black text-gray-900 mb-1">📋 快速录卡</h3>
+    <p class="text-xs text-gray-400 mb-4">粘贴支付宝/微信转账备注，自动解析姓名和手机号</p>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-bold text-gray-500 mb-1 block">粘贴转账备注</label>
+        <textarea id="quickAddText" rows="3" class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 transition-all outline-none resize-none" placeholder="例：王小明 13812345678 邀请码001111&#10;或：王小明 13812345678&#10;或：买月卡 王小明 13812345678"></textarea>
+      </div>
+      <div class="bg-blue-50 rounded-xl p-3" id="quickAddPreview">
+        <p class="text-xs text-blue-400">粘贴备注后自动解析</p>
+      </div>
+    </div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="closeQuickAddModal()" class="flex-1 px-4 py-2.5 bg-gray-100 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-200 active:scale-95 transition-all">取消</button>
+      <button onclick="confirmQuickAdd()" id="quickAddBtn" disabled class="flex-1 px-4 py-2.5 bg-blue-500 rounded-xl text-sm font-bold text-white hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">确认录卡</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PIN LOCK ========== -->
+<div id="pinLock" class="fixed inset-0 z-[100] flex items-center justify-center bg-white">
+  <div class="text-center">
+    <p class="text-5xl mb-4">🍺</p>
+    <h2 class="text-xl font-black text-gray-900 mb-2">老板端已锁定</h2>
+    <p class="text-sm text-gray-400 mb-6">输入 PIN 解锁</p>
+    <input type="password" id="pinInput" maxlength="4" inputmode="numeric" pattern="[0-9]*" autofocus
+      class="w-40 text-center px-4 py-3 bg-gray-100 rounded-2xl text-2xl font-black tracking-widest outline-none border-2 border-gray-200 focus:border-red-400 transition-all"
+      oninput="checkPIN()">
+    <p id="pinError" class="text-xs text-red-500 mt-3 hidden"></p>
+    <div class="mt-4">
+      <button onclick="setNewPIN()" class="text-xs text-gray-300 hover:text-red-400 underline transition-all">设置/修改 PIN</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'beer_card_v2';
+
+// ---- PIN Lock ----
+var PIN_KEY = STORAGE_KEY + '_pin';
+var pinAttempts = 0;
+var pinLockedUntil = 0;
+
+function getPIN() { return localStorage.getItem(PIN_KEY) || '0000'; }
+function setNewPIN() {
+  var current = prompt('输入当前 PIN（首次设置直接留空并点确定，然后输入新 PIN）：', '');
+  if (current === null) return;
+  if (current !== '' && current !== getPIN()) return toast('PIN 错误', 'error');
+  var newPin = prompt('输入新的 4 位数字 PIN：', '');
+  if (newPin === null || newPin === '') return;
+  if (!/^\d{4}$/.test(newPin)) return toast('PIN 必须是 4 位数字', 'error');
+  localStorage.setItem(PIN_KEY, newPin);
+  toast('✅ PIN 已设置');
+}
+
+function checkPIN() {
+  var input = document.getElementById('pinInput');
+  var val = input.value;
+  if (val.length < 4) return;
+
+  // Rate limiting
+  if (pinLockedUntil > Date.now()) {
+    var sec = Math.ceil((pinLockedUntil - Date.now()) / 1000);
+    showPinError('输入过于频繁，请 ' + sec + ' 秒后再试');
+    input.value = '';
+    return;
+  }
+
+  if (val === getPIN()) {
+    document.getElementById('pinLock').classList.add('hidden');
+    pinAttempts = 0;
+    init();
+  } else {
+    pinAttempts++;
+    input.value = '';
+    if (pinAttempts >= 5) {
+      pinLockedUntil = Date.now() + 60000;
+      showPinError('已锁定 60 秒');
+    } else {
+      showPinError('PIN 错误（' + pinAttempts + '/5）');
+    }
+  }
+}
+
+function showPinError(msg) {
+  var el = document.getElementById('pinError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function init() {
+  app = loadData();
+
+  // Ensure all existing cards have inviteCode and invitedBy fields
+  app.cards.forEach(function(c) {
+    if (!c.inviteCode) c.inviteCode = generateInviteCode(c.name, c.phone);
+    if (c.invitedBy === undefined) c.invitedBy = '';
+  });
+
+  renderBossView();
+}
+
+// ---- Invite code generator ----
+function generateInviteCode(name, phone) {
+  // Random 6-digit code, ensure uniqueness
+  var code;
+  do {
+    code = String(Math.floor(Math.random() * 900000) + 100000);
+  } while ((app.cards || []).some(function(c) { return c.inviteCode === code; }));
+  return code;
+}
+
+function loadData() {
+  var raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); }
+    catch(e) { /* fall through */ }
+  }
+  var today = new Date();
+  var fmt = function(d) { return d.toISOString().split('T')[0]; };
+  var d = function(offset) {
+    var dt = new Date(today);
+    dt.setDate(dt.getDate() + offset);
+    return fmt(dt);
+  };
+
+  // Generate invite codes for sample cards
+  var c1 = { id:'MK-20260701', name:'张三', phone:'13800001111', buyDate:d(-5),  expireDate:d(25), total:4, used:2, status:'active',  transferred:0, fromCard:'', inviteCode:'', invitedBy:'', note:'' };
+  var c2 = { id:'MK-20260702', name:'李四', phone:'13800002222', buyDate:d(-28), expireDate:d(2),  total:4, used:3, status:'warning', transferred:0, fromCard:'', inviteCode:'', invitedBy:'', note:'' };
+  var c3 = { id:'MK-20260703', name:'王五', phone:'13800003333', buyDate:d(-35), expireDate:d(-5), total:4, used:2, status:'expired', transferred:0, fromCard:'', inviteCode:'', invitedBy:'', note:'已提醒续卡' };
+  var c4 = { id:'MK-20260704', name:'赵六', phone:'13800004444', buyDate:d(-10), expireDate:d(20), total:4, used:4, status:'used',    transferred:1, fromCard:'MK-20260701', inviteCode:'', invitedBy:'', note:'转让自张三' };
+var usedCodes = {};
+  function genTempCode() {
+    var code;
+    do { code = String(Math.floor(Math.random() * 900000) + 100000); }
+    while (usedCodes[code]);
+    usedCodes[code] = true;
+    return code;
+  }
+    c1.inviteCode = genTempCode();
+  c2.inviteCode = genTempCode();
+  c3.inviteCode = genTempCode();
+  c4.inviteCode = genTempCode();
+
+  // Sample: 王五是通过李四的邀请码买的
+  c3.invitedBy = c2.inviteCode;
+
+  var init = {
+    cards: [c1, c2, c3, c4],
+    records: [
+      { time: d(-3)+' 20:30', cardId:'MK-20260701', name:'张三', cups:1, remain:3, drink:'莫吉托', operator:'星云' },
+      { time: d(-1)+' 21:15', cardId:'MK-20260701', name:'张三', cups:1, remain:2, drink:'威士忌酸', operator:'星云' },
+      { time: d(-2)+' 22:00', cardId:'MK-20260702', name:'李四', cups:1, remain:3, drink:'长岛冰茶', operator:'星云' },
+    ],
+    nextId: 5,
+    wallets: {},
+    giftTickets: [],
+  };
+  saveData(init);
+  return init;
+}
+
+function saveData(data) {
+  var json = JSON.stringify(data);
+  localStorage.setItem(STORAGE_KEY, json);
+  localStorage.setItem(STORAGE_KEY + '_lastModified', new Date().toISOString());
+  // Dual-write to IndexedDB (safer than localStorage alone)
+  try {
+    var req = indexedDB.open('beer_card_db', 1);
+    req.onupgradeneeded = function(e) { e.target.result.createObjectStore('data'); };
+    req.onsuccess = function(e) {
+      var tx = e.target.result.transaction('data', 'readwrite');
+      tx.objectStore('data').put(json, 'current');
+    };
+  } catch(e) { /* IndexedDB not available */ }
+  // Note: sync-server.py can be run separately for file persistence
+}
+
+var app;
+
+// ---- Undo stack ----
+var undoStack = [];
+var MAX_UNDO = 20;
+function pushUndo(label) {
+  undoStack.push({ label: label, data: JSON.parse(JSON.stringify(app)), time: new Date().toISOString() });
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  updateUndoBtn();
+}
+function undoLast() {
+  if (undoStack.length === 0) return;
+  var snapshot = undoStack.pop();
+  app = snapshot.data;
+  saveData(app);
+  updateUndoBtn();
+  renderBossView();
+  switchView('boss');
+  toast('↩ 已撤销：' + snapshot.label);
+}
+function updateUndoBtn() {
+  var btn = document.getElementById('undoBtn');
+  if (!btn) return;
+  if (undoStack.length === 0) {
+    btn.classList.add('hidden');
+  } else {
+    btn.classList.remove('hidden');
+    btn.textContent = '↩ 撤销 (' + undoStack.length + ')';
+  }
+}
+
+// ---- Helpers ----
+function refreshCardStatus(card) {
+  var today = new Date().toISOString().split('T')[0];
+  if (card.used >= card.total) { card.status = 'used'; }
+  else if (card.expireDate < today) { card.status = 'expired'; }
+  else {
+    var daysLeft = Math.ceil((new Date(card.expireDate) - new Date()) / 86400000);
+    card.status = daysLeft <= 3 ? 'warning' : 'active';
+  }
+  return card;
+}
+
+function getBizDay() {
+  // Use actual calendar date (simpler, less error-prone)
+  return new Date().toISOString().split('T')[0];
+}
+
+function wasVerifiedToday(cardId) {
+  var today = getBizDay();
+  return app.records.some(function(r) { return r.cardId === cardId && r.time.startsWith(today); });
+}
+
+function findCardByInviteCode(code) {
+  if (!code) return null;
+  var upper = code.toUpperCase().trim();
+  return app.cards.find(function(c) { return c.inviteCode && c.inviteCode.toUpperCase() === upper; });
+}
+
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  var bg = type === 'error' ? 'bg-red-500' : type === 'warn' ? 'bg-yellow-500 text-gray-900' : 'bg-green-500';
+  el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl font-medium text-sm toast shadow-lg ' + bg;
+  el.classList.remove('hidden');
+  setTimeout(function() { el.classList.add('hidden'); }, 3000);
+}
+
+// ---- View Switching ----
+function switchView(view) {
+  document.getElementById('bossView').classList.toggle('hidden', view !== 'boss');
+  document.getElementById('todoView').classList.toggle('hidden', view !== 'todo');
+  document.getElementById('customerView').classList.toggle('hidden', view !== 'customer');
+  document.getElementById('recordView').classList.add('hidden');
+  document.getElementById('referralView').classList.add('hidden');
+
+  var btnB = document.getElementById('btnBoss');
+  var btnT = document.getElementById('btnTodo');
+  var btnC = document.getElementById('btnCustomer');
+  var arr = [btnB, btnT, btnC];
+  arr.forEach(function(b) { b.className = 'px-4 py-2 rounded-lg text-sm font-bold text-gray-400 transition-all'; });
+  if (view === 'boss') {
+    btnB.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-red-500 transition-all';
+    renderBossView();
+  } else if (view === 'todo') {
+    btnT.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-red-500 transition-all';
+    renderTodoView();
+  } else {
+    btnC.className = 'px-4 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-red-500 transition-all';
+    // Don't clear search — searchCustomerCard handles empty state
+  }
+}
+
+// ---- Todo View ----
+function renderTodoView() {
+  var now = new Date();
+  var nowStr = now.toISOString().split('T')[0];
+  var items = [];
+
+  // --- Scan ---
+  // New cards (created today) -> notify invite code
+  var todayNewCards = (app.cards || []).filter(function(c) { return c.buyDate === nowStr && (!c.note || c.note.indexOf('续卡') === -1); });
+  // New cards via renew -> notify new card details
+  var todayRenewCards = (app.cards || []).filter(function(c) { return c.buyDate === nowStr && c.renewCount && c.renewCount > 0; });
+
+  // Cards by status
+  var activeOrWarn = [];
+  var warnCards = [];
+  var lastCallCards = []; // 1 cup left
+  var expCards = [];
+  (app.cards || []).forEach(function(c) {
+    var days = Math.ceil((new Date(c.expireDate) - now) / 86400000);
+    if (c.status === 'warning') warnCards.push({card:c, days:days});
+    if (c.status === 'expired') expCards.push({card:c, days:days});
+    if ((c.status === 'active' || c.status === 'warning') && (c.total - c.used) <= 1 && c.used >= 1) {
+      lastCallCards.push({card:c, days:days});
+    }
+    // 7-day renew reminder (exclude warning - those get a stronger reminder)
+    if (((c.status === 'active') || (c.status === 'warning' && days < 0)) && days > 0 && days <= 7) {
+      activeOrWarn.push({card:c, days:days, urgent: days <= 3});
+    }
+  });
+
+  // Gift tickets
+  var newGiftOwners = {}; // created today -> notify
+  var giftExpiringOwners = {}; // 7d and 3d
+  (app.giftTickets || []).forEach(function(t) {
+    if (t.status !== 'unused') return;
+    var days = Math.ceil((new Date(t.expireDate) - now) / 86400000);
+    if (days < 0) return;
+    var oid = t.ownerCardId;
+    if (t.createdAt === nowStr) {
+      if (!newGiftOwners[oid]) newGiftOwners[oid] = {name:t.ownerName, tickets:[], worst:999, phone:t.ownerPhone||''};
+      newGiftOwners[oid].tickets.push(t);
+      newGiftOwners[oid].worst = Math.min(newGiftOwners[oid].worst, days);
+    } else if (days <= 7) {
+      if (!giftExpiringOwners[oid]) giftExpiringOwners[oid] = {name:t.ownerName, tickets:[], worst:999, phone:t.ownerPhone||''};
+      giftExpiringOwners[oid].tickets.push(t);
+      giftExpiringOwners[oid].worst = Math.min(giftExpiringOwners[oid].worst, days);
+    }
+  });
+
+  // Load checked items
+  var checked = {};
+  try { checked = JSON.parse(localStorage.getItem('beer_card_todo_checked') || '{}'); } catch(e) {}
+  var sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  Object.keys(checked).forEach(function(k) {
+    if (checked[k] < sevenDaysAgo.toISOString()) delete checked[k];
+  });
+  function isChecked(key) { return !!checked[key]; }
+  function mkKey(pre, id) { return nowStr + '_' + pre + '_' + id; }
+
+  // Helper: generate a WeChat text template
+  function wxCopyBtn(text) {
+    // Store text in a global map indexed by an id, avoid inline escaping hell
+    if (!window._todoCopyTexts) window._todoCopyTexts = {};
+    var cid = 'ct_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    window._todoCopyTexts[cid] = text;
+    return '<button data-copy-id="' + cid + '" class="todo-copy-btn ml-1 px-2 py-0.5 text-xs font-bold bg-white/80 rounded-lg hover:bg-white active:scale-95 transition-all whitespace-nowrap border border-gray-200">📋 复制文案</button>';
+  }
+
+  // --- Build items ---
+
+  // 1. New cards: send card info + invite code
+  todayNewCards.forEach(function(c) {
+    var inviter = c.invitedBy ? findCardByInviteCode(c.invitedBy) : null;
+    var txt = '🎫 ' + c.name + '，你的黑犬喝酒月卡已开通！\n\n📋 卡号：' + c.id + '\n📅 有效期：' + c.expireDate + '（共30天）\n🍺 共4杯，每天可来喝1杯\n\n🔑 你的邀请码：' + c.inviteCode + '\n朋友办卡时给老板报这个码 → 你白得1杯赠饮\n\n📍 到店跟老板报手机号就行';
+    if (inviter) txt += '\n\n💡 你填了 ' + inviter.name + ' 的邀请码，TA也得了1杯赠饮🎁';
+    items.push({id:mkKey('newcard',c.id), pri:1, icon:'🎫', color:'green',
+      title:'新卡通知：' + c.name + '（' + c.phone + '）',
+      detail:'卡号 ' + c.id + '，截止 ' + c.expireDate + '，4杯。邀请码：' + c.inviteCode + (inviter?' 来自 '+inviter.name:''),
+      copyTxt: txt,
+      link:'customer:' + c.phone});
+  });
+
+  // 2. New gift tickets
+  Object.keys(newGiftOwners).forEach(function(oid) {
+    var g = newGiftOwners[oid];
+    var allTickets = (app.giftTickets||[]).filter(function(t){return t.ownerCardId===oid&&t.status==='unused';});
+    var allCodes = allTickets.map(function(t){return t.redeemCode + (t.expireDate?'(至'+t.expireDate+')':'');}).join('、');
+    var totalTickets = allTickets.length;
+    var newCount = g.tickets.length;
+    var word = newCount > 1 ? newCount + '张新赠饮券' : '新赠饮券';
+    var plural = totalTickets > 1 ? '你的 ' + totalTickets + ' 张赠饮券' : '你的赠饮券';
+    var txt = '🎁 ' + g.name + '，恭喜！你获得了' + word + '！\n\n' + plural + '：\n' + allCodes + '\n\n到店跟老板报兑换码就行，可以请朋友喝，也可以自己喝\n\n目前你共有 ' + totalTickets + ' 张可用赠饮券 🍺';
+    items.push({id:mkKey('gnew',oid), pri:2, icon:'🎁', color:'pink',
+      title:'赠饮券通知：' + g.name + '（新增' + newCount + '张）',
+      detail:'兑换码 ' + allCodes + '。共持有 ' + totalTickets + ' 张可用',
+      copyTxt: txt,
+      link:'customer:' + g.phone});
+  });
+
+  // 3. Warning cards (expiring within 3 days)
+  warnCards.forEach(function(r) {
+    var c = r.card;
+    var remain = c.total - c.used;
+    var txt = '⚠️ ' + c.name + '，你的喝酒月卡还剩 ' + r.days + ' 天到期！\n\n剩余杯数：' + remain + ' 杯\n到期日：' + c.expireDate + '\n\n续卡 ¥198，剩余杯数直接叠加到新卡\n还送一张赠饮券（可自己喝也可送朋友）🎁';
+    items.push({id:mkKey('warn',c.id), pri:3, icon:'⚠️', color:'yellow',
+      title:'到期警告：' + c.name + '（' + c.phone + '）',
+      detail:'仅剩 ' + r.days + ' 天，剩余 ' + remain + ' 杯。到期日 ' + c.expireDate,
+      copyTxt: txt,
+      link:'customer:' + c.phone});
+  });
+
+  // 4. 7-day renew reminder (exclude already warned)
+  activeOrWarn.forEach(function(r) {
+    var c = r.card;
+    var remain = c.total - c.used;
+    var urgency = r.urgent ? '⚠️ 仅剩' + r.days + '天！' : '还剩' + r.days + '天';
+    var txt = '🔔 ' + c.name + '，你的喝酒月卡' + urgency + '（' + c.expireDate + '）\n\n剩余：' + remain + ' 杯\n\n喝完记得续卡～续卡叠加剩余杯数 + 送赠饮券 🎁';
+    var pri = r.urgent ? 3.5 : 4;
+    items.push({id:mkKey('rsoon',c.id), pri:pri, icon:r.urgent?'⚠️':'🔔', color:r.urgent?'yellow':'blue',
+      title:'到期提醒：' + c.name + '（' + c.phone + '）',
+      detail:urgency + '到期（' + c.expireDate + '），剩余 ' + remain + ' 杯',
+      copyTxt: txt,
+      link:'customer:' + c.phone});
+  });
+
+  // 5. Last call (1 cup left)
+  lastCallCards.forEach(function(r) {
+    var c = r.card;
+    var txt = '🍺 ' + c.name + '，你的月卡只剩最后1杯啦！\n\n喝完续卡 ¥198，送赠饮券🎁\n之前的剩余杯数会叠加到新卡，不会浪费～';
+    items.push({id:mkKey('last',c.id), pri:5, icon:'🍸', color:'blue',
+      title:'最后一杯提醒：' + c.name + '（' + c.phone + '）',
+      detail:'剩余1杯。喝完可续卡叠加 + 赠饮券',
+      copyTxt: txt,
+      link:'customer:' + c.phone});
+  });
+
+  // 6. Gift tickets expiring
+  Object.keys(giftExpiringOwners).forEach(function(oid) {
+    var g = giftExpiringOwners[oid];
+    var allTickets = (app.giftTickets||[]).filter(function(t){return t.ownerCardId===oid&&t.status==='unused';});
+    var allCodes = allTickets.map(function(t){return t.redeemCode + (t.expireDate?'(至'+t.expireDate+')':'');}).join('、');
+    var word = allTickets.length > 1 ? allTickets.length + '张赠饮券' : '赠饮券';
+    var isUrgent = g.worst <= 3;
+    var txt = (isUrgent ? '⚠️ ' : '🎫 ') + g.name + '，你的' + word + '还剩 ' + g.worst + ' 天到期！\n\n' + allCodes + '\n\n赶紧来用掉，过期作废～';
+    items.push({id:mkKey('gexp',oid), pri:isUrgent?4.5:6, icon:isUrgent?'⚠️':'🎫', color:isUrgent?'yellow':'pink',
+      title:'赠饮券临期：' + g.name + '（' + allTickets.length + '张）',
+      detail:(isUrgent?'⚠️ 仅剩'+g.worst+'天！':'还剩'+g.worst+'天') + '，兑换码 ' + allCodes,
+      copyTxt: txt,
+      link:'customer:' + g.phone});
+  });
+
+  // 7. Expired cards
+  expCards.forEach(function(r) {
+    var c = r.card;
+    var txt = '👋 ' + c.name + '，你的喝酒月卡已经过期啦～\n\n之前还剩 ' + (c.total-c.used) + ' 杯没喝哦\n\n续卡 ¥198，剩余杯数叠加到新卡，还送赠饮券 🎁';
+    items.push({id:mkKey('exp',c.id), pri:7, icon:'🕐', color:'gray',
+      title:'过期回访：' + c.name + '（' + c.phone + '）',
+      detail:'到期日 ' + c.expireDate + '，剩 ' + (c.total-c.used) + ' 杯。续卡可叠加',
+      copyTxt: txt,
+      link:'customer:' + c.phone});
+  });
+
+  // Sort by priority
+  items.sort(function(a,b) { return a.pri - b.pri; });
+
+  var unchecked = items.filter(function(it){return !isChecked(it.id);});
+  var checkedItems = items.filter(function(it){return isChecked(it.id);});
+
+  var html = '';
+  if (items.length === 0) {
+    html = '<div class="empty-state text-center py-16"><p class="text-5xl mb-4">🍺</p><p class="text-lg font-bold text-gray-700">今天没有需要发消息的人</p><p class="text-sm text-gray-400 mt-1">轻松的一天 ✌️</p></div>';
+  } else {
+    var doneCount = checkedItems.length;
+    html += '<div class="flex items-center justify-between mb-3"><p class="text-xs text-gray-400">共 ' + items.length + ' 项 · 已发 ' + doneCount + ' 条</p>';
+    html += '<button onclick="resetTodoChecked()" class="text-xs text-gray-300 hover:text-red-400 underline transition-all">重置勾选</button></div>';
+
+    function renderItem(it, done) {
+      var bg = done ? 'bg-gray-50 border-gray-100 opacity-50' : (it.color === 'yellow' ? 'bg-yellow-50 border-yellow-200' : it.color === 'blue' ? 'bg-blue-50 border-blue-200' : it.color === 'pink' ? 'bg-pink-50 border-pink-200' : it.color === 'gray' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200');
+      var iconBg = done ? 'bg-gray-200' : (it.color === 'yellow' ? 'bg-yellow-100' : it.color === 'blue' ? 'bg-blue-100' : it.color === 'pink' ? 'bg-pink-100' : it.color === 'gray' ? 'bg-gray-200' : 'bg-green-100');
+      var btns = '';
+      if (it.copyTxt && !done) btns += wxCopyBtn(it.copyTxt);
+      if (it.link && !done) btns += ' <a href="#" data-todo-link="' + it.link + '" class="todo-link-btn px-2 py-0.5 text-xs font-bold bg-white/80 rounded-lg hover:bg-white active:scale-95 transition-all whitespace-nowrap border border-gray-200 no-underline ml-1">🔗 顾客端</a>';
+      return '<div class="' + bg + ' rounded-2xl p-4 border transition-all">'
+        + '<div class="flex items-start gap-3">'
+        + '<button data-todo-id="' + it.id + '" class="todo-check-btn ' + iconBg + ' w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 hover:scale-110 active:scale-95 transition-all ' + (done ? '' : 'cursor-pointer') + '">' + (done ? '✅' : it.icon) + '</button>'
+        + '<div class="flex-1 min-w-0">'
+        + '<div class="flex items-center flex-wrap gap-1 mb-0.5">'
+        + '<p class="text-sm font-bold ' + (done ? 'text-gray-400 line-through' : 'text-gray-800') + '">' + it.title + '</p>'
+        + btns
+        + '</div>'
+        + '<p class="text-xs ' + (done ? 'text-gray-300' : 'text-gray-500') + '">' + it.detail + '</p>'
+        + '<p class="text-xs font-medium ' + (done ? 'text-gray-300' : (it.color === 'yellow' ? 'text-yellow-600' : it.color === 'blue' ? 'text-blue-600' : it.color === 'pink' ? 'text-pink-600' : it.color === 'gray' ? 'text-gray-500' : 'text-green-600')) + ' mt-1">→ 发一条微信即可</p>'
+        + '</div></div></div>';
+    }
+
+    unchecked.forEach(function(it, i) { html += renderItem(it, false); });
+    if (checkedItems.length > 0) {
+      html += '<div class="border-t border-gray-200 my-3 pt-2"><p class="text-xs text-gray-300 text-center mb-2">— 已发消息 —</p></div>';
+      checkedItems.forEach(function(it, i) { html += renderItem(it, true); });
+    }
+  }
+
+  document.getElementById('todoList').innerHTML = html;
+
+  // Delegate copy button clicks (avoids inline escaping issues)
+  var list = document.getElementById('todoList');
+  list.onclick = function(e) {
+    // Copy button
+    var cpBtn = e.target.closest('.todo-copy-btn');
+    if (cpBtn) {
+      e.preventDefault();
+      var cid = cpBtn.getAttribute('data-copy-id');
+      var text = (window._todoCopyTexts || {})[cid];
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function() {
+        toast('📋 已复制，可粘贴到微信发送');
+      }).catch(function() {
+        prompt('📋 请手动复制：', text);
+      });
+      return;
+    }
+    // Check button
+    var chkBtn = e.target.closest('.todo-check-btn');
+    if (chkBtn) {
+      e.preventDefault();
+      var tid = chkBtn.getAttribute('data-todo-id');
+      toggleTodoCheck(tid);
+      return;
+    }
+    // Link button
+    var linkBtn = e.target.closest('.todo-link-btn');
+    if (linkBtn) {
+      e.preventDefault();
+      var rawLink = linkBtn.getAttribute('data-todo-link');
+      handleTodoLink(e, rawLink);
+      return;
+    }
+  };
+}
+
+function handleTodoLink(evt, rawLink) {
+  evt.preventDefault();
+  if (rawLink.startsWith('customer:')) {
+    var phone = rawLink.replace('customer:', '');
+    switchView('customer');
+    document.getElementById('custSearch').value = phone;
+    searchCustomerCard();
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function toggleTodoCheck(id) {
+  var checked = {};
+  try { checked = JSON.parse(localStorage.getItem('beer_card_todo_checked') || '{}'); } catch(e) {}
+  if (checked[id]) {
+    delete checked[id];
+  } else {
+    checked[id] = new Date().toISOString();
+  }
+  localStorage.setItem('beer_card_todo_checked', JSON.stringify(checked));
+  renderTodoView();
+}
+
+function resetTodoChecked() {
+  localStorage.removeItem('beer_card_todo_checked');
+  renderTodoView();
+}
+
+// ---- Boss View Render ----
+function renderBossView() {
+  app.cards.forEach(function(c) { refreshCardStatus(c); });
+  saveData(app);
+
+  var search = (document.getElementById('bossSearch').value || '').toLowerCase();
+  var filter = document.getElementById('bossFilter').value;
+
+  var cards = app.cards.filter(function(c) {
+    if (search) {
+      var match = c.id.toLowerCase().indexOf(search) !== -1
+        || c.name.toLowerCase().indexOf(search) !== -1
+        || c.phone.indexOf(search) !== -1
+        || (c.inviteCode && c.inviteCode.toLowerCase().indexOf(search) !== -1);
+      if (!match) return false;
+    }
+    if (filter !== 'all' && c.status !== filter) return false;
+    return true;
+  });
+
+  document.getElementById('statTotal').textContent = app.cards.length;
+  document.getElementById('statActive').textContent = app.cards.filter(function(c) { return c.status === 'active'; }).length;
+  document.getElementById('statWarning').textContent = app.cards.filter(function(c) { return c.status === 'warning'; }).length;
+  var todayStr = getBizDay();
+  document.getElementById('statToday').textContent = app.records.filter(function(r) { return r.time.startsWith(todayStr); }).length;
+
+  var list = document.getElementById('bossCardList');
+  var empty = document.getElementById('bossEmpty');
+
+  if (cards.length === 0) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  // Update dashboard
+  updateDashboard();
+
+  var sm = {
+    active:  ['生效中',   'bg-green-100 text-green-700'],
+    warning: ['即将到期', 'bg-yellow-100 text-yellow-700'],
+    expired: ['已过期',   'bg-red-100 text-red-700'],
+    used:    ['已用完',   'bg-gray-100 text-gray-500'],
+  };
+
+  list.innerHTML = cards.map(function(c) {
+    var s = sm[c.status];
+    var remain = c.total - c.used;
+    var daysLeft;
+    if (c.status === 'expired') daysLeft = '已过期';
+    else if (c.status === 'used') daysLeft = '—';
+    else daysLeft = Math.max(0, Math.ceil((new Date(c.expireDate) - new Date()) / 86400000)) + '天';
+
+    var vt = wasVerifiedToday(c.id);
+    var canV = c.status === 'active' || c.status === 'warning';
+
+    var verifyBtn;
+    if (canV) {
+      if (vt) {
+        verifyBtn = '<button disabled class="px-4 py-2 rounded-xl text-xs font-bold bg-gray-100 text-gray-400 cursor-not-allowed">今日已核</button>';
+      } else {
+        verifyBtn = '<button onclick="verifyCard(\'' + c.id + '\')" class="px-4 py-2 rounded-xl text-xs font-bold bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all shadow-lg shadow-red-200">核销1杯</button>';
+      }
+    } else {
+      verifyBtn = '<button disabled class="px-4 py-2 rounded-xl text-xs font-bold bg-gray-100 text-gray-400 cursor-not-allowed">不可核销</button>';
+    }
+
+    var badges = '';
+    if (c.transferred > 0) badges += '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-600">已转赠</span>';
+    if (c.invitedBy) {
+      var inviter = findCardByInviteCode(c.invitedBy);
+      var inviterName = inviter ? inviter.name : c.invitedBy;
+      badges += '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">受邀:' + inviterName + '</span>';
+    }
+
+    var extra = [];
+    if (c.inviteCode) extra.push('邀请码:' + c.inviteCode);
+    if (c.note) extra.push(c.note);
+    if (c.fromCard) extra.push('原卡:' + c.fromCard);
+    var extraStr = extra.length ? ' · ' + extra.join(' · ') : '';
+
+    return '<div class="bg-white rounded-2xl p-4 card-shadow flex flex-wrap items-center gap-3">'
+      + '<div class="flex-1 min-w-0">'
+      + '<div class="flex items-center gap-2 mb-1 flex-wrap">'
+      + '<span class="text-xs font-mono text-gray-400">' + c.id + '</span>'
+      + '<span class="px-2 py-0.5 rounded-full text-xs font-bold ' + s[1] + '">' + s[0] + '</span>'
+      + badges
+      + '</div>'
+      + '<p class="font-bold text-gray-900">' + c.name + ' <span class="text-gray-400 font-normal text-sm">' + c.phone + '</span></p>'
+      + '<p class="text-xs text-gray-400 mt-1">' + c.buyDate + ' 购买 · ' + c.expireDate + ' 到期 · 剩余 <b class="text-red-500">' + remain + '</b>/<b>' + c.total + '</b> 杯 · ' + daysLeft + extraStr + '</p>'
+      + '</div>'
+      + '<div class="flex items-center gap-2 shrink-0">'
+      + '<button onclick="enterCustomerFromBoss(\'' + c.phone + '\')" class="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 active:scale-95 transition-all" title="顾客端查看">🔍</button>'
+      + verifyBtn
+      + '<button onclick="showCardActions(\'' + c.id + '\')" class="px-3 py-2 rounded-xl text-xs font-bold bg-gray-50 text-gray-600 hover:bg-gray-100 active:scale-95 transition-all">···</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+// ---- Add Card ----
+function showAddCardModal() {
+  document.getElementById('addCardModal').classList.remove('hidden');
+  document.getElementById('addName').value = '';
+  document.getElementById('addPhone').value = '';
+  document.getElementById('addTotal').value = '4';
+  document.getElementById('addDays').value = '30';
+  document.getElementById('addInviteCode').value = '';
+  document.getElementById('addNote').value = '';
+  document.getElementById('inviteCodeHint').classList.add('hidden');
+  setTimeout(function() { document.getElementById('addName').focus(); }, 100);
+}
+
+function closeAddCardModal() {
+  document.getElementById('addCardModal').classList.add('hidden');
+}
+
+// ---- Quick Add (paste transfer note) ----
+var quickAddParsed = null;
+
+function showQuickAddModal() {
+  document.getElementById('quickAddModal').classList.remove('hidden');
+  document.getElementById('quickAddText').value = '';
+  document.getElementById('quickAddPreview').innerHTML = '<p class="text-xs text-blue-400">粘贴备注后自动解析</p>';
+  document.getElementById('quickAddBtn').disabled = true;
+  quickAddParsed = null;
+  setTimeout(function() { document.getElementById('quickAddText').focus(); }, 100);
+}
+
+function closeQuickAddModal() {
+  document.getElementById('quickAddModal').classList.add('hidden');
+}
+
+// Parse on input
+function parseTransferNote(text) {
+  if (!text || !text.trim()) return null;
+  var t = text.trim();
+
+  // Try to find a Chinese name (2-4 Chinese chars) + phone number
+  // Phone: 1[3-9]xxxxxxxxx (11 digits)
+  var phoneMatch = t.match(/1[3-9]\d{9}/);
+  if (!phoneMatch) return null;
+  var phone = phoneMatch[0];
+
+  // Find name: look for 2-4 consecutive Chinese characters before or near the phone
+  var nameMatch = t.match(/[\u4e00-\u9fa5]{2,4}/g);
+  if (!nameMatch) return null;
+
+  // Pick the name closest to the phone
+  var name = nameMatch[0];
+  if (nameMatch.length > 1) {
+    // Find the one closest to phone position
+    var phoneIdx = t.indexOf(phone);
+    var best = nameMatch[0];
+    var bestDist = Math.abs(t.indexOf(best) - phoneIdx);
+    for (var i = 1; i < nameMatch.length; i++) {
+      var dist = Math.abs(t.indexOf(nameMatch[i]) - phoneIdx);
+      if (dist < bestDist) { bestDist = dist; best = nameMatch[i]; }
+    }
+    name = best;
+  }
+
+  // Skip name if it looks like a keyword
+  var keywords = ['月卡','喝酒','备注','转账','购买','微信','支付宝','邀请码'];
+  if (keywords.indexOf(name) !== -1) {
+    // Try next match
+    name = nameMatch.find(function(n) { return keywords.indexOf(n) === -1; }) || name;
+  }
+
+  // Find standalone 6-digit invite code (not part of phone)
+  var inviteCode = '';
+  // Remove the phone from text, then look for 6-digit numbers in remaining
+  var textWithoutPhone = t.replace(phone, ' ');
+  var inviteMatch = textWithoutPhone.match(/\d{6}/);
+  if (inviteMatch) inviteCode = inviteMatch[0];
+
+  return { name: name, phone: phone, inviteCode: inviteCode };
+}
+
+// Attach input listener after DOM ready
+setTimeout(function() {
+  var ta = document.getElementById('quickAddText');
+  if (ta) {
+    ta.addEventListener('input', function() {
+      var parsed = parseTransferNote(this.value);
+      var preview = document.getElementById('quickAddPreview');
+      var btn = document.getElementById('quickAddBtn');
+      if (parsed) {
+        quickAddParsed = parsed;
+        preview.innerHTML =
+          '<div class="space-y-1">'
+          + '<div class="flex justify-between text-sm"><span class="text-blue-400">姓名</span><span class="font-bold text-blue-700">' + parsed.name + '</span></div>'
+          + '<div class="flex justify-between text-sm"><span class="text-blue-400">手机号</span><span class="font-bold text-blue-700">' + parsed.phone + '</span></div>'
+          + (parsed.inviteCode ? '<div class="flex justify-between text-sm"><span class="text-blue-400">邀请码</span><span class="font-bold text-blue-700">' + parsed.inviteCode + '</span></div>' : '')
+          + '<div class="flex justify-between text-sm"><span class="text-blue-400">套餐</span><span class="font-bold text-blue-700">198元/4杯/30天</span></div>'
+          + '</div>';
+        btn.disabled = false;
+      } else {
+        quickAddParsed = null;
+        preview.innerHTML = '<p class="text-xs text-red-400">未能识别姓名+手机号，请检查格式</p>';
+        btn.disabled = true;
+      }
+    });
+  }
+}, 200);
+
+function confirmQuickAdd() {
+  if (!quickAddParsed) return;
+  if (!app || !app.cards) { console.error('app not ready'); toast('系统初始化中，请刷新页面', 'error'); return; }
+  var p = quickAddParsed;
+
+  // Validate
+  if (!p.name || !p.phone) return toast('解析失败', 'error');
+
+  pushUndo('快速录卡-' + p.name);
+
+  // Check duplicate
+  var hasActive = app.cards.some(function(c) {
+    return c.phone === p.phone && (c.status === 'active' || c.status === 'warning');
+  });
+  if (hasActive && !confirm('该手机号已有生效中的月卡。确定继续售出吗？')) return;
+
+  // Validate invite code if present
+  var inviter = null;
+  if (p.inviteCode) {
+    inviter = findCardByInviteCode(p.inviteCode);
+    if (!inviter) {
+      if (!confirm('邀请码 ' + p.inviteCode + ' 未找到，是否忽略邀请码继续录卡？')) return;
+      p.inviteCode = '';
+    }
+  }
+
+  var today = new Date();
+  var expire = new Date(today);
+  expire.setDate(expire.getDate() + 30);
+
+  var card = {
+    id: 'MK-' + today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(app.nextId).padStart(2, '0'),
+    name: p.name,
+    phone: p.phone,
+    buyDate: today.toISOString().split('T')[0],
+    expireDate: expire.toISOString().split('T')[0],
+    total: 4,
+    used: 0,
+    status: 'active',
+    transferred: 0,
+    fromCard: '',
+    inviteCode: generateInviteCode(p.name, p.phone),
+    invitedBy: p.inviteCode && inviter ? inviter.inviteCode : '',
+    note: '线上支付录卡',
+  };
+
+  app.cards.unshift(card);
+  // Real-time commission credit
+  if (card.invitedBy && findCardByInviteCode(card.invitedBy)) {
+    creditCommission(card.invitedBy, false);
+  }
+
+  app.nextId++;
+  saveData(app);
+  closeQuickAddModal();
+  renderBossView();
+
+  var msg = '✅ 已录卡！卡号：' + card.id + '，' + card.name + '，请通知顾客';
+  if (inviter) msg += '（邀请人：' + inviter.name + '）';
+  toast(msg);
+}
+
+function lookupInviteCode() {
+  var code = document.getElementById('addInviteCode').value.trim();
+  var hint = document.getElementById('inviteCodeHint');
+  if (!code) { hint.classList.add('hidden'); return; }
+  var card = findCardByInviteCode(code);
+  if (card) {
+    hint.textContent = '✅ 找到邀请人：' + card.name + '（' + card.phone + '）';
+    hint.className = 'text-xs text-green-600 mt-1';
+  } else {
+    hint.textContent = '❌ 未找到该邀请码，请确认';
+    hint.className = 'text-xs text-red-500 mt-1';
+  }
+  hint.classList.remove('hidden');
+}
+
+function addCard() {
+  if (!app || !app.cards) { toast('系统初始化中，请刷新页面', 'error'); return; }
+  var name = document.getElementById('addName').value.trim();
+  var phone = document.getElementById('addPhone').value.trim();
+  var total = parseInt(document.getElementById('addTotal').value) || 4;
+  var days = parseInt(document.getElementById('addDays').value) || 30;
+  var inviteCode = document.getElementById('addInviteCode').value.trim();
+  var note = document.getElementById('addNote').value.trim();
+
+  if (!name || !phone) return toast('请填写姓名和手机号', 'error');
+  if (total < 1 || total > 20) return toast('杯数需在1-20之间', 'error');
+  if (days < 1 || days > 365) return toast('有效期需在1-365天之间', 'error');
+
+  // Validate invite code
+  var inviter = null;
+  if (inviteCode) {
+    inviter = findCardByInviteCode(inviteCode);
+    if (!inviter) return toast('邀请码无效，请检查或留空', 'error');
+  }
+
+  var hasActive = app.cards.some(function(c) {
+    return c.phone === phone && (c.status === 'active' || c.status === 'warning');
+  });
+  if (hasActive && !confirm('该手机号已有生效中的月卡。规则不允许叠加，确定继续售出吗？')) return;
+
+  pushUndo('售卡-' + name);
+
+  var today = new Date();
+  var expire = new Date(today);
+  expire.setDate(expire.getDate() + days);
+
+  var card = {
+    id: 'MK-' + today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(app.nextId).padStart(2, '0'),
+    name: name,
+    phone: phone,
+    buyDate: today.toISOString().split('T')[0],
+    expireDate: expire.toISOString().split('T')[0],
+    total: total,
+    used: 0,
+    status: 'active',
+    transferred: 0,
+    fromCard: '',
+    inviteCode: generateInviteCode(name, phone),
+    invitedBy: inviter ? inviter.inviteCode : '',
+    note: note,
+  };
+
+  app.cards.unshift(card);
+
+  // Real-time commission credit
+  if (card.invitedBy && findCardByInviteCode(card.invitedBy)) {
+    creditCommission(card.invitedBy, false);
+  }
+
+  app.nextId++;
+  saveData(app);
+  closeAddCardModal();
+  renderBossView();
+
+  var msg = '月卡已售出！卡号：' + card.id + '，' + total + '杯，' + days + '天有效';
+  if (inviter) msg += '（邀请人：' + inviter.name + '）';
+  toast(msg);
+}
+
+// ---- Verify ----
+function verifyCard(cardId) {
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  if (!card) return;
+  if (wasVerifiedToday(cardId)) return toast('今日已核销过，每天限1杯', 'error');
+
+  var content = document.getElementById('actionContent');
+  content.innerHTML =
+    '<h3 class="text-lg font-black text-gray-900 mb-1">核销确认</h3>'
+    + '<p class="text-sm text-gray-500 mb-4">' + card.name + ' · ' + card.id + ' · 剩余 ' + (card.total - card.used) + '/' + card.total + ' 杯</p>'
+    + '<div class="space-y-3">'
+    + '<div><label class="text-xs font-bold text-gray-500 mb-1 block">品类</label>'
+    + '<select id="verifyDrink" class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 outline-none">'
+    + '<option value="">请选择品类</option>'
+    + '<option>🍸 经典鸡尾酒（客人直接点名）</option>'
+    + '<option>🎲 世界Top50酒单（抽签/盲选）</option>'
+    + '<option>✨ 特调鸡尾酒</option>'
+    + '<option>🍓 酸甜果味精酿（60元内）</option>'
+    + '<option>🌿 苦味IPA精酿（60元内）</option>'
+    + '<option>🍺 清爽拉格/小麦精酿（60元内）</option>'
+    + '<option>🥤 无酒精饮品</option>'
+    + '</select></div></div>'
+    + '<div class="flex gap-3 mt-5">'
+    + '<button onclick="closeActionModal()" class="flex-1 px-4 py-2.5 bg-gray-100 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-200 active:scale-95 transition-all">取消</button>'
+    + '<button onclick="confirmVerify(\'' + cardId + '\')" class="flex-1 px-4 py-2.5 bg-red-500 rounded-xl text-sm font-bold text-white hover:bg-red-600 active:scale-95 transition-all">确认核销</button>'
+    + '</div>';
+  document.getElementById('actionModal').classList.remove('hidden');
+}
+
+function closeActionModal() {
+  document.getElementById('actionModal').classList.add('hidden');
+}
+
+function confirmVerify(cardId) {
+  var drink = document.getElementById('verifyDrink').value;
+  if (!drink) return toast('请选择品类', 'error');
+
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  if (!card) return;
+
+  pushUndo('核销-' + card.name);
+
+  card.used++;
+  refreshCardStatus(card);
+
+  var now = new Date();
+  app.records.unshift({
+    time: now.toISOString().split('T')[0] + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
+    cardId: card.id,
+    name: card.name,
+    cups: 1,
+    remain: card.total - card.used,
+    drink: drink,
+    operator: '星云',
+  });
+
+  saveData(app);
+  closeActionModal();
+  renderBossView();
+  toast('核销成功！' + card.name + ' 剩余 ' + (card.total - card.used) + ' 杯 · ' + drink);
+}
+
+// ---- Card Actions ----
+function showCardActions(cardId) {
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  if (!card) return;
+
+  // Count referrals and gift tickets
+  var referralCount = app.cards.filter(function(c) { return c.invitedBy === card.inviteCode; }).length;
+  var giftTickets = (app.giftTickets || []).filter(function(t) { return t.ownerCardId === cardId && t.status === 'unused'; });
+  var giftCount = giftTickets.length;
+
+  var html = '<h3 class="text-lg font-black text-gray-900 mb-1">卡片操作</h3>'
+    + '<p class="text-sm text-gray-500 mb-4">' + card.name + ' · ' + card.id
+    + ' · 邀请码 <b>' + card.inviteCode + '</b>'
+    + (referralCount > 0 ? ' · 已邀请 <b class="text-amber-600">' + referralCount + '</b> 人' : '')
+    + (giftCount > 0 ? ' · 赠饮券 <b class="text-pink-600">' + giftCount + '</b> 张' : '')
+    + '</p>'
+    + '<div class="space-y-2">';
+
+  html += '<button onclick="closeActionModal();manualAdjust(\'' + cardId + '\')" class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-100 active:scale-[0.98] transition-all text-left">调整杯数（当前' + card.used + '/' + card.total + '）</button>';
+
+  if ((card.status === 'active' || card.status === 'warning') && card.transferred < 1) {
+    html += '<button onclick="closeActionModal();transferCard(\'' + cardId + '\')" class="w-full px-4 py-2.5 bg-purple-50 rounded-xl text-sm font-bold text-purple-700 hover:bg-purple-100 active:scale-[0.98] transition-all text-left">转让卡片（可转让1次）</button>';
+  }
+
+  if (card.status !== 'expired' || card.used < card.total) {
+    // Allow renew for any card that isn't dead-expired with 0 cups
+    // active/warning: normal renew with remaining cups
+    // expired with cups: renew with remaining
+    // used (all drunk): renew = fresh 4 cups
+    var renewRemain = card.status === 'used' ? 0 : (card.total - card.used);
+    html += '<button onclick="closeActionModal();renewCard(\'' + cardId + '\')" class="w-full px-4 py-2.5 bg-green-50 rounded-xl text-sm font-bold text-green-700 hover:bg-green-100 active:scale-[0.98] transition-all text-left">续卡（叠加剩余' + renewRemain + '杯）</button>';
+  }
+
+  html += '<button onclick="closeActionModal();copyInviteCode(\'' + cardId + '\')" class="w-full px-4 py-2.5 bg-amber-50 rounded-xl text-sm font-bold text-amber-700 hover:bg-amber-100 active:scale-[0.98] transition-all text-left">📋 复制邀请码：' + card.inviteCode + '</button>';
+
+  // Gift ticket actions
+  if (giftCount > 0) {
+    html += '<button onclick="closeActionModal();verifyGiftTicket(\'' + cardId + '\')" class="w-full px-4 py-2.5 bg-pink-50 rounded-xl text-sm font-bold text-pink-700 hover:bg-pink-100 active:scale-[0.98] transition-all text-left">🎁 核销赠饮券（' + giftCount + '张可用）</button>';
+  }
+
+  // Wallet actions (only if this card has a wallet balance)
+  var wallet = getWallet(card.inviteCode);
+  if (wallet && wallet.balance > 0) {
+    html += '<button onclick="closeActionModal();walletWithdraw(\'' + card.inviteCode + '\')" class="w-full px-4 py-2.5 bg-blue-50 rounded-xl text-sm font-bold text-blue-700 hover:bg-blue-100 active:scale-[0.98] transition-all text-left">💳 提现（余额 ¥' + wallet.balance.toFixed(2) + '）</button>';
+    html += '<button onclick="closeActionModal();walletDeduct(\'' + card.inviteCode + '\')" class="w-full px-4 py-2.5 bg-purple-50 rounded-xl text-sm font-bold text-purple-700 hover:bg-purple-100 active:scale-[0.98] transition-all text-left">🎫 抵扣续卡（余额 ¥' + wallet.balance.toFixed(2) + '）</button>';
+  }
+
+  html += '<button onclick="closeActionModal();deleteCardConfirm(\'' + cardId + '\')" class="w-full px-4 py-2.5 bg-red-50 rounded-xl text-sm font-bold text-red-500 hover:bg-red-100 active:scale-[0.98] transition-all text-left">删除此卡</button>';
+
+  html += '</div><div class="mt-4"><button onclick="closeActionModal()" class="w-full px-4 py-2.5 bg-gray-200 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-300 active:scale-95 transition-all">关闭</button></div>';
+
+  document.getElementById('actionContent').innerHTML = html;
+  document.getElementById('actionModal').classList.remove('hidden');
+}
+
+function copyInviteCode(cardId) {
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  if (!card) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(card.inviteCode).then(function() {
+      toast('邀请码已复制：' + card.inviteCode);
+    }).catch(function() {
+      prompt('邀请码（手动复制）：', card.inviteCode);
+    });
+  } else {
+    prompt('邀请码（手动复制）：', card.inviteCode);
+  }
+}
+
+function copyGiftShare(code, expireStr) {
+  var text =
+    '🍺 请你喝一杯！\n\n' +
+    '我的朋友送你一张【黑犬酒吧】赠饮券 🎁\n' +
+    '凭兑换码到店免费喝一杯\n\n' +
+    '🔑 兑换码：' + code + '\n' +
+    '⏰ 有效期至：' + expireStr + '\n' +
+    '📍 到店出示此信息即可核销\n\n' +
+    '——喝完觉得不错的话，也可以办张月卡哦～';
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      toast('📤 赠饮分享文案已复制！可直接发送给朋友');
+    }).catch(function() {
+      prompt('分享文案（手动复制）：', text);
+    });
+  } else {
+    prompt('分享文案（手动复制）：', text);
+  }
+}
+
+function copyInviteText(cardId) {
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  if (!card) return;
+
+  var inviteCount = app.cards.filter(function(c) { return c.invitedBy === card.inviteCode; }).length;
+
+  var text =
+    '🍺 帮我攒杯酒呗～\n\n' +
+    '我在黑犬酒吧办了个喝酒月卡，198元喝4杯。\n' +
+    '你也来办的话，填我的邀请码 👇\n\n' +
+    '🔑 邀请码：' + card.inviteCode + '\n' +
+    '👤 来自：' + card.name + '\n' +
+    (inviteCount > 0 ? '🎁 已帮 ' + card.name + ' 攒了 ' + inviteCount + ' 杯酒\n\n' : '\n') +
+    '🎫 你办卡 → 我白得1杯赠饮\n' +
+    '🔄 你续卡 → 我基金+5%\n\n' +
+    '到店跟老板说「办月卡，邀请码 ' + card.inviteCode + '」或直接转账198就搞定 ✌️\n' +
+    '转账备注「姓名+手机号+' + card.inviteCode + '」就行～';
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      toast('📤 邀请文案已复制！可直接粘贴发送给朋友');
+    }).catch(function() {
+      prompt('邀请文案（手动复制）：', text);
+    });
+  } else {
+    prompt('邀请文案（手动复制）：', text);
+  }
+}
+
+// ---- Gift Ticket Operations ----
+function transferGiftTicket(cardId) {
+  var tickets = (app.giftTickets || []).filter(function(t) { return t.ownerCardId === cardId && t.status === 'unused'; });
+  if (tickets.length === 0) return toast('没有可转赠的饮券', 'warn');
+
+  var now = new Date();
+  var html = '<div class="space-y-2 max-h-64 overflow-y-auto">';
+  html += '<p class="text-xs text-gray-400 mb-2">点击选择要转赠的饮券</p>';
+  tickets.forEach(function(t, i) {
+    var dl = Math.max(0, Math.ceil((new Date(t.expireDate) - now) / 86400000));
+    html += '<button onclick="confirmTransferChoice(\'' + cardId + '\', ' + i + ')" class="w-full px-4 py-3 bg-gray-50 rounded-xl text-left hover:bg-blue-50 active:scale-[0.98] transition-all border border-gray-100">';
+    html += '<span class="font-bold text-sm text-gray-800">' + t.redeemCode + '</span>';
+    html += '<span class="text-xs text-gray-400 ml-2">' + t.id + '</span>';
+    html += '<span class="float-right text-xs text-gray-400">' + dl + '天有效</span>';
+    html += '<br><span class="text-xs text-gray-400">来源：' + t.sourceDetail + '</span>';
+    html += '</button>';
+  });
+  html += '</div>';
+
+  document.getElementById('actionContent').innerHTML = html;
+  document.getElementById('actionModal').classList.remove('hidden');
+}
+
+function confirmTransferChoice(cardId, idx) {
+  var tickets = (app.giftTickets || []).filter(function(t) { return t.ownerCardId === cardId && t.status === 'unused'; });
+  if (idx < 0 || idx >= tickets.length) return;
+  var ticket = tickets[idx];
+
+  var toName = prompt('转赠给谁？（输入姓名）');
+  if (!toName || !toName.trim()) return;
+  toName = toName.trim();
+
+  if (!confirm('确认将 ' + ticket.redeemCode + '（' + ticket.ownerName + '）转赠给 ' + toName + '？')) return;
+
+  ticket.status = 'transferred';
+  ticket.transferredTo = toName;
+  saveData(app);
+  closeActionModal();
+  renderBossView();
+  toast('🎁 饮券 ' + ticket.redeemCode + ' 已转赠给 ' + toName);
+}
+
+function verifyGiftTicket(cardId) {
+  var tickets = (app.giftTickets || []).filter(function(t) { return t.ownerCardId === cardId && t.status === 'unused'; });
+  if (tickets.length === 0) return toast('没有可核销的饮券', 'warn');
+
+  // Build inline selection modal
+  var now = new Date();
+  var html = '<div class="space-y-2 max-h-64 overflow-y-auto">';
+  html += '<p class="text-xs text-gray-400 mb-2">点击选择要核销的赠饮券</p>';
+  tickets.forEach(function(t, i) {
+    var dl = Math.max(0, Math.ceil((new Date(t.expireDate) - now) / 86400000));
+    html += '<button onclick="confirmGiftChoice(\'' + cardId + '\', ' + i + ')" class="w-full px-4 py-3 bg-gray-50 rounded-xl text-left hover:bg-pink-50 active:scale-[0.98] transition-all border border-gray-100">';
+    html += '<span class="font-bold text-sm text-gray-800">' + t.redeemCode + '</span>';
+    html += '<span class="text-xs text-gray-400 ml-2">' + t.id + '</span>';
+    html += '<span class="float-right text-xs ' + (dl <= 3 ? 'text-red-500 font-bold' : 'text-gray-400') + '">' + dl + '天有效</span>';
+    html += '<br><span class="text-xs text-gray-400">来源：' + t.sourceDetail + '</span>';
+    html += '</button>';
+  });
+  html += '</div>';
+
+  document.getElementById('actionContent').innerHTML = html;
+  document.getElementById('actionModal').classList.remove('hidden');
+}
+
+function confirmGiftChoice(cardId, idx) {
+  var tickets = (app.giftTickets || []).filter(function(t) { return t.ownerCardId === cardId && t.status === 'unused'; });
+  if (idx < 0 || idx >= tickets.length) return;
+  var ticket = tickets[idx];
+
+  pushUndo('核销赠饮券-' + ticket.ownerName);
+
+  var friendName = prompt('这杯给谁喝？（输入朋友名字，留空=未记录）', '');
+  if (friendName === null) return;
+  if (!friendName || !friendName.trim()) friendName = '未记录';
+
+  if (!confirm('确认核销 ' + ticket.redeemCode + '？\n' + ticket.ownerName + ' 的赠饮券 → 给 ' + friendName.trim() + ' 喝')) return;
+
+  ticket.status = 'used';
+  ticket.usedAt = new Date().toISOString();
+  ticket.transferredTo = friendName.trim();
+  // Add to records
+  var fn = friendName.trim();
+  var now = new Date();
+  app.records.unshift({
+    time: now.toISOString().split('T')[0] + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'),
+    cardId: cardId,
+    name: ticket.ownerName + '→' + fn,
+    cups: 1,
+    remain: 0,
+    drink: '🎁 赠饮券核销（' + ticket.redeemCode + '，给 ' + fn + '）',
+    operator: '星云'
+  });
+  saveData(app);
+  closeActionModal();
+  renderBossView();
+  toast('✅ 饮券 ' + ticket.redeemCode + ' 已核销（' + fn + '）');
+}
+
+// ---- Redeem gift ticket by code (from boss toolbar) ----
+function redeemGiftCode() {
+  var code = document.getElementById('redeemCodeInput').value.trim();
+  if (!code) return toast('请输入兑换码', 'warn');
+
+  var ticket = (app.giftTickets || []).find(function(t) {
+    return t.redeemCode === code && t.status === 'unused';
+  });
+
+  if (!ticket) return toast('兑换码无效或已使用', 'error');
+
+  pushUndo('核销赠饮券-' + ticket.ownerName);
+
+  var daysLeft = Math.max(0, Math.ceil((new Date(ticket.expireDate) - new Date()) / 86400000));
+  if (daysLeft <= 0) return toast('该券已过期', 'error');
+
+  if (!confirm('兑换码：' + code + '\n来自：' + ticket.ownerName + '\n来源：' + ticket.sourceDetail + '\n剩余：' + daysLeft + '天\n\n确认核销？')) return;
+
+  var friendName = prompt('这杯给谁喝？（输入名字，留空=未记录）', '');
+  if (friendName === null) return;
+  if (!friendName || !friendName.trim()) friendName = '未记录';
+  var fn = friendName.trim();
+
+  ticket.status = 'used';
+  ticket.usedAt = new Date().toISOString();
+  ticket.transferredTo = fn;
+  // Add to records
+  var now = new Date();
+  app.records.unshift({
+    time: now.toISOString().split('T')[0] + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'),
+    cardId: ticket.ownerCardId,
+    name: ticket.ownerName + '→' + fn,
+    cups: 1,
+    remain: 0,
+    drink: '🎁 赠饮券核销（' + code + '）',
+    operator: '星云'
+  });
+  saveData(app);
+  renderBossView();
+  document.getElementById('redeemCodeInput').value = '';
+  toast('✅ 兑换码 ' + code + ' 已核销！给 ' + fn);
+}
+
+
+function manualAdjust(cardId) {
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  var newUsed = prompt('当前已核销 ' + card.used + '/' + card.total + ' 杯。输入新的已核销杯数：', card.used);
+  if (newUsed === null) return;
+  var val = parseInt(newUsed);
+  if (isNaN(val) || val < 0 || val > card.total) return toast('无效杯数', 'error');
+
+  pushUndo('调整杯数-' + card.name);
+  card.used = val;
+  refreshCardStatus(card);
+  saveData(app);
+  renderBossView();
+  toast('已更新：' + card.name + ' 剩余 ' + (card.total - card.used) + ' 杯');
+}
+
+function transferCard(cardId) {
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  if (card.transferred >= 1) return toast('该卡已转赠过，不可再次转让', 'error');
+
+  pushUndo('转让-' + card.name);
+
+  var remaining = card.total - card.used;
+  if (remaining <= 0) return toast('该卡已无剩余杯数，无法转让', 'error');
+
+  var newName = prompt('将剩余 ' + remaining + ' 杯转让给新卡主，请输入新卡主姓名：');
+  if (!newName || !newName.trim()) return;
+  newName = newName.trim();
+
+  var newPhone = prompt('输入新卡主手机号：');
+  if (!newPhone || !newPhone.trim()) return;
+  newPhone = newPhone.trim();
+
+  var today = new Date();
+  var newCard = {
+    id: 'MK-' + today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(app.nextId).padStart(2, '0'),
+    name: newName,
+    phone: newPhone,
+    buyDate: today.toISOString().split('T')[0],
+    expireDate: card.expireDate,
+    total: remaining,
+    used: 0,
+    status: 'active',
+    transferred: 1,
+    fromCard: card.id,
+    inviteCode: generateInviteCode(newName, newPhone),
+    invitedBy: '',
+    note: '转让自' + card.name + '（' + card.phone + '），继承剩余' + remaining + '杯，不可再转让',
+  };
+  refreshCardStatus(newCard);
+
+  // Mark original card as used up
+  card.status = 'used';
+  card.used = card.total;
+  card.transferred++;
+  var oldNote = card.note ? card.note + '；' : '';
+  card.note = oldNote + '已转赠给' + newName + '（剩余' + remaining + '杯）';
+
+  app.cards.unshift(newCard);
+  app.nextId++;
+  saveData(app);
+  renderBossView();
+  toast('已转赠！新卡号：' + newCard.id + '，' + remaining + '杯，到期日不变，不可再转让');
+}
+
+function renewCard(cardId) {
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  var remain = card.total - card.used;
+  var statusMap = { active: '生效中', warning: '即将到期', expired: '已过期', used: '已用完' };
+  var statusText = statusMap[card.status] || card.status;
+  var confirmMsg = card.name + ' 的卡' + statusText + '，剩余 ' + remain + ' 杯。\n续卡：叠加4杯（总' + (remain + 4) + '杯）+ 延长30天，卡号不变。';
+  confirmMsg += '\n\n邀请码不变，续卡奖励照常发放。';
+  if (!confirm(confirmMsg + '确定吗？')) return;
+
+  pushUndo('续卡-' + card.name);
+
+  var today = new Date();
+  // Extend expiry: from current expiry (or today if expired) + 30 days
+  var baseExpire = new Date(card.expireDate + 'T00:00:00');
+  if (isNaN(baseExpire.getTime()) || baseExpire < today) baseExpire = today;
+  var expire = new Date(baseExpire);
+  expire.setDate(expire.getDate() + 30);
+
+  // Track renewal count
+  if (typeof card.renewCount === 'undefined') card.renewCount = 0;
+  card.renewCount++;
+
+  // Update card in-place
+  card.total += 4;
+  card.expireDate = expire.toISOString().split('T')[0];
+  card.status = 'active';
+  card.buyDate = today.toISOString().split('T')[0]; // update buy date for stats
+  var oldNote = card.note ? card.note + '；' : '';
+  card.note = oldNote + '续卡' + card.renewCount + '次（最近' + today.toISOString().split('T')[0] + '，叠加4杯）';
+
+  refreshCardStatus(card);
+
+  // Renewal commission
+  if (card.invitedBy && findCardByInviteCode(card.invitedBy)) {
+    creditCommission(card.invitedBy, true);
+  }
+
+  saveData(app);
+  renderBossView();
+
+  // Give renewer a gift ticket
+  createGiftTicket(card.id, card.name, card.phone, '续卡奖励（可赠友）');
+
+  var msg = '续卡成功！' + card.name + ' 卡号不变，' + card.total + '杯 + 1张赠饮券 🎁';
+  if (card.invitedBy) {
+    var inviter = findCardByInviteCode(card.invitedBy);
+    if (inviter) msg += '（邀请人：' + inviter.name + '，续卡基金已发放）';
+  }
+  toast(msg);
+}
+
+function deleteCardConfirm(cardId) {
+  var card = app.cards.find(function(c) { return c.id === cardId; });
+  if (!confirm('确定要删除 ' + (card?card.name:cardId) + ' 的卡？此操作可撤销。')) return;
+  pushUndo('删除-' + (card?card.name:cardId));
+  app.cards = app.cards.filter(function(c) { return c.id !== cardId; });
+  saveData(app);
+  renderBossView();
+  toast('卡片已删除', 'warn');
+}
+
+// ---- Customer View ----
+function searchCustomerCard() {
+  var query = document.getElementById('custSearch').value.trim();
+  if (!query) return;
+
+  var cards = app.cards.filter(function(c) {
+    return c.id === query
+      || c.phone === query
+      || c.phone.indexOf(query) !== -1
+      || c.name === query
+      || c.name.indexOf(query) !== -1
+      || (c.inviteCode && c.inviteCode === query);
+  });
+  var result = document.getElementById('custResult');
+  var empty = document.getElementById('custEmpty');
+
+  if (cards.length === 0) {
+    result.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return toast('未找到匹配的卡', 'error');
+  }
+
+  if (cards.length === 1) {
+    renderCustomerCard(cards[0]);
+    return;
+  }
+
+  empty.classList.add('hidden');
+  result.classList.remove('hidden');
+  var sm = { active:{label:'生效中',c:'text-green-600'}, warning:{label:'即将到期',c:'text-yellow-600'}, expired:{label:'已过期',c:'text-red-500'}, used:{label:'已用完',c:'text-gray-400'} };
+  result.innerHTML =
+    '<div class="bg-white rounded-3xl p-6 card-shadow">'
+    + '<p class="text-sm font-bold text-gray-700 mb-3">找到 ' + cards.length + ' 张匹配的卡：</p>'
+    + '<div class="space-y-2">'
+    + cards.map(function(c) {
+        var s = sm[c.status];
+        return '<button onclick="renderCustomerCard(findCard(\'' + c.id + '\'))" class="w-full px-4 py-3 bg-gray-50 rounded-xl text-left hover:bg-red-50 active:scale-[0.98] transition-all border border-gray-100">'
+        + '<span class="font-bold text-sm">' + c.name + '</span>'
+        + '<span class="text-xs text-gray-400 ml-2">' + c.phone + '</span>'
+        + '<span class="float-right text-xs font-bold ' + s.c + '">' + s.label + '</span>'
+        + '<br><span class="text-xs text-gray-400">' + c.id + ' · 剩余 ' + (c.total-c.used) + '/' + c.total + ' 杯</span>'
+        + '</button>';
+      }).join('')
+    + '</div></div>';
+}
+
+function findCard(id) { return app.cards.find(function(c){return c.id===id;}); }
+
+function enterCustomerFromBoss(phone) {
+  switchView('customer');
+  document.getElementById('custSearch').value = phone;
+  searchCustomerCard();
+}
+
+function renderCustomerCard(card) {
+  var result = document.getElementById('custResult');
+  var empty = document.getElementById('custEmpty');
+  empty.classList.add('hidden');
+  result.classList.remove('hidden');
+
+  var remain = card.total - card.used;
+  var pct = card.total > 0 ? (remain / card.total) * 100 : 0;
+  var daysLeft = Math.max(0, Math.ceil((new Date(card.expireDate) - new Date()) / 86400000));
+
+  var sm = {
+    active:  { label: '生效中',   color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+    warning: { label: '即将到期', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+    expired: { label: '已过期',   color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+    used:    { label: '已用完',   color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+  };
+  var s = sm[card.status];
+
+  var daysText;
+  if (card.status === 'expired') daysText = '已过期';
+  else if (card.status === 'used') daysText = '—';
+  else daysText = daysLeft + ' 天';
+
+  var wallet = getWallet(card.inviteCode);
+  var fundBalance = wallet ? wallet.balance : 0;
+
+  var footerText;
+  if (card.status === 'warning') {
+    var renewPrice = 198 - fundBalance;
+    if (renewPrice < 0) renewPrice = 0;
+    footerText = '⚠️ 卡即将到期！续卡 ¥198' + (fundBalance > 0 ? '（基金可抵扣 ¥' + fundBalance.toFixed(2) + '，实付 ¥' + renewPrice.toFixed(2) + '）' : '') + ' · 续卡即送赠饮券 🎁';
+  } else if (card.status === 'active') {
+    footerText = '到店出示此页面给店员核销 · 每天限1杯';
+  } else {
+    footerText = '此卡已失效，联系店员续卡可激活（续卡送赠饮券 🎁）';
+  }
+
+  // Count invites this month
+  var thisMonth = new Date().toISOString().substring(0, 7);
+  var inviteCount = app.cards.filter(function(c) { return c.invitedBy === card.inviteCode && c.buyDate.startsWith(thisMonth); }).length;
+
+  result.innerHTML =
+    '<div class="flex items-center gap-2 mb-3">'
+    + '<button onclick="switchView(\'boss\')" class="text-xs text-red-400 font-bold hover:text-red-500 transition-all">← 老板端</button>'
+    + '<span class="text-gray-300 text-xs">|</span>'
+    + '<button onclick="searchCustomerCard()" class="text-xs text-blue-400 font-bold hover:text-blue-500 transition-all">← 搜索结果</button>'
+    + '</div>'
+    + '<div class="bg-white rounded-3xl p-6 card-shadow">'
+    + '<div class="text-center mb-5">'
+    + '<span class="inline-block px-3 py-1 rounded-full text-xs font-bold" style="background:' + s.bg + ';color:' + s.color + '">' + s.label + '</span>'
+    + '</div>'
+    + '<div class="text-center mb-5">'
+    + '<p class="text-5xl font-black text-gray-900">' + remain + '<span class="text-xl text-gray-300 font-normal"> / ' + card.total + '</span></p>'
+    + '<p class="text-xs text-gray-400 mt-1">剩余杯数</p>'
+    + '<div class="mt-3 mx-auto w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">'
+    + '<div class="h-2.5 rounded-full progress-bar" style="width:' + pct + '%;background:' + s.color + '"></div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="space-y-2.5 text-sm bg-gray-50 rounded-2xl p-4">'
+    + '<div class="flex justify-between"><span class="text-gray-400">卡号</span><span class="font-bold text-gray-700 font-mono">' + card.id + '</span></div>'
+    + '<div class="flex justify-between"><span class="text-gray-400">姓名</span><span class="font-bold text-gray-700">' + card.name + '</span></div>'
+    + '<div class="flex justify-between"><span class="text-gray-400">购买日期</span><span class="text-gray-600">' + card.buyDate + '</span></div>'
+    + '<div class="flex justify-between"><span class="text-gray-400">到期日期</span><span class="text-gray-600">' + card.expireDate + '</span></div>'
+    + '<div class="flex justify-between"><span class="text-gray-400">剩余天数</span><span class="font-bold" style="color:' + s.color + '">' + daysText + '</span></div>'
+    + '</div>'
+    // Wallet balance
+    var wallet = getWallet(card.inviteCode);
+    var walletBalance = wallet ? wallet.balance : 0;
+    if (walletBalance > 0) {
+      result.innerHTML +=
+        '<div class="mt-4 bg-green-50 rounded-2xl p-4 text-center">'
+        + '<p class="text-xs text-green-600 font-bold mb-1">💰 喝酒基金</p>'
+        + '<p class="text-3xl font-black text-green-700">¥' + walletBalance.toFixed(2) + '</p>'
+        + '<p class="text-xs text-green-500 mt-1">续卡或消费可抵扣</p>'
+        + '</div>';
+    }
+
+    // Invite code section
+    result.innerHTML +=
+      '<div class="mt-4 bg-amber-50 rounded-2xl p-4 text-center">'
+    + '<p class="text-xs text-amber-600 font-bold mb-1">你的邀请码</p>'
+    + '<p class="text-xl font-black text-amber-800 font-mono tracking-wider">' + card.inviteCode + '</p>'
+    + '<p class="text-xs text-amber-500 mt-1">本月已邀请 <b>' + inviteCount + '</b> 人 · 每人获赠饮券+¥9.90基金</p>'
+    + '<p class="text-xs text-amber-400 mt-0.5">朋友续卡还能继续攒基金（续卡费5%）</p>'
+    + '<button onclick="copyInviteText(\'' + card.id + '\')" class="mt-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 active:scale-95 transition-all w-full">📤 一键邀请（复制文案）</button>'
+    + '</div>'
+    + (card.note ? '<div class="mt-3 text-xs text-gray-400 text-center">' + card.note + '</div>' : '')
+
+    // Gift tickets
+    + (function() {
+      var tickets = (app.giftTickets || []).filter(function(t) {
+        return t.ownerCardId === card.id && (t.status === 'unused' || t.status === 'transferred');
+      });
+      if (tickets.length === 0) return '';
+      var html = '<div class="mt-4 bg-pink-50 rounded-2xl p-4">';
+      html += '<p class="text-xs text-pink-600 font-bold mb-2">🎁 赠饮券（' + tickets.length + '张可用）</p>';
+      tickets.forEach(function(t) {
+        var daysLeft = Math.max(0, Math.ceil((new Date(t.expireDate) - new Date()) / 86400000));
+        var expireStr = t.expireDate.replace(/^\d{4}-/, '');
+        html += '<div class="bg-white rounded-xl p-3 mb-2 last:mb-0">';
+        html += '<div class="flex items-center justify-between mb-1">';
+        html += '<span class="text-xs font-bold text-pink-700">兑换码：' + (t.redeemCode || t.id) + '</span>';
+        html += '<span class="text-xs text-pink-400">' + daysLeft + '天有效（至' + expireStr + '）</span>';
+        html += '</div>';
+        html += '<p class="text-xs text-pink-500">来源：' + t.sourceDetail + '</p>';
+        html += '<button onclick="copyGiftShare(\'' + (t.redeemCode || t.id) + '\', \'' + expireStr + '\')" class="mt-1.5 px-3 py-1.5 bg-pink-500 text-white rounded-lg text-xs font-bold hover:bg-pink-600 active:scale-95 transition-all w-full">📤 转发给朋友（复制文案）</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    })()
+
+    + '<div class="mt-5 pt-4 border-t border-gray-100">'
+    + '<p class="text-xs text-gray-400 text-center">' + footerText + '</p>'
+    + '</div>'
+    + '</div>';
+}
+
+// ---- Records View ----
+var recordPeriod = 'today';
+var recordFilterType = 'all';
+
+function setRecordPeriod(period) {
+  recordPeriod = period;
+  ['today','month','all'].forEach(function(p){
+    var btn = document.getElementById('recBtn'+p.charAt(0).toUpperCase()+p.slice(1));
+    if (!btn) return;
+    btn.className = p===period ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all' : 'px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all';
+  });
+  showRecords();
+}
+function setRecordFilter(type) {
+  recordFilterType = type;
+  ['all','card','gift'].forEach(function(t){
+    var btn = document.getElementById('recFilter'+t.charAt(0).toUpperCase()+t.slice(1));
+    if (!btn) return;
+    btn.className = t===type ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all' : 'px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all';
+  });
+  showRecords();
+}
+
+function showRecords() {
+  hideAllSubViews();
+  document.getElementById('recordView').classList.remove('hidden');
+
+  var list = document.getElementById('recordList');
+  var empty = document.getElementById('recordEmpty');
+
+  if (app.records.length === 0) {
+    list.innerHTML = ''; empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  var records = app.records.slice();
+
+  // Period filter
+  var todayStr = getBizDay();
+  var monthStr = todayStr.substring(0, 7);
+  if (recordPeriod === 'today') records = records.filter(function(r){return r.time.startsWith(todayStr);});
+  if (recordPeriod === 'month') records = records.filter(function(r){return r.time.startsWith(monthStr);});
+
+  // Type filter
+  if (recordFilterType === 'card') records = records.filter(function(r){return r.drink.indexOf('赠饮券')===-1;});
+  if (recordFilterType === 'gift') records = records.filter(function(r){return r.drink.indexOf('赠饮券')!==-1;});
+
+  // Category breakdown
+  var cats = {};
+  records.forEach(function(r){
+    var cat = '其他';
+    if (r.drink.indexOf('赠饮券')!==-1) cat = '🎁 赠饮';
+    else if (r.drink.indexOf('经典鸡尾酒')!==-1) cat = '🍸 鸡尾酒';
+    else if (r.drink.indexOf('Top50')!==-1) cat = '🎲 Top50';
+    else if (r.drink.indexOf('特调')!==-1) cat = '✨ 特调';
+    else if (r.drink.indexOf('精酿')!==-1) cat = '🍺 精酿';
+    else if (r.drink.indexOf('无酒精')!==-1) cat = '🥤 无酒精';
+    cats[cat] = (cats[cat]||0) + 1;
+  });
+  var catKeys = Object.keys(cats).sort(function(a,b){return cats[b]-cats[a];});
+  var catHtml = catKeys.map(function(k){return '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-white/80 border">'+k+' ×'+cats[k]+'</span>';}).join(' ');
+
+  // Stats
+  var cardV = records.filter(function(r){return r.drink.indexOf('赠饮券')===-1;}).length;
+  var giftV = records.filter(function(r){return r.drink.indexOf('赠饮券')!==-1;}).length;
+  var statsHtml = '<div class="flex items-center gap-3 text-sm">'
+    + '<span class="font-black text-gray-900">' + records.length + '</span><span class="text-gray-400 text-xs">杯</span>'
+    + '<span class="text-gray-300">·</span><span class="text-xs text-gray-500">月卡 ' + cardV + '</span>'
+    + '<span class="text-gray-300">·</span><span class="text-xs text-pink-500">赠饮 ' + giftV + '</span>'
+    + '</div>';
+  document.getElementById('recordStats').innerHTML = '<div class="flex items-center justify-between bg-gray-50 rounded-xl p-3 mb-3">' + statsHtml + '<div>' + catHtml + '</div></div>';
+
+  // Compact list
+  if (records.length === 0) {
+    list.innerHTML = '<div class="text-center py-8 text-gray-400 text-sm">该筛选条件下无记录</div>';
+    return;
+  }
+  list.innerHTML = records.map(function(r) {
+    var isGift = r.drink.indexOf('赠饮券') !== -1;
+    var time = r.time.substring(5, 16).replace(' ', ' '); // MM-DD HH:MM
+    return '<div class="' + (isGift ? 'bg-pink-50/30 ' : 'bg-white ') + 'rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm">'
+      + '<span class="text-xs text-gray-400 font-mono w-24 shrink-0">' + time + '</span>'
+      + '<span class="font-bold text-gray-700 w-24 shrink-0 truncate">' + r.name + '</span>'
+      + '<span class="text-xs text-gray-400 w-12 shrink-0">' + (isGift ? '🎁赠' : '🍺月') + '</span>'
+      + '<span class="flex-1 text-xs text-gray-500 truncate">' + r.drink + '</span>'
+      + '</div>';
+  }).join('');
+}
+
+function closeRecords() {
+  document.getElementById('recordView').classList.add('hidden');
+  document.getElementById('bossView').classList.remove('hidden');
+  renderBossView();
+}
+
+// ---- Referral View ----
+function hideAllSubViews() {
+  document.getElementById('bossView').classList.add('hidden');
+  document.getElementById('todoView').classList.add('hidden');
+  document.getElementById('customerView').classList.add('hidden');
+  document.getElementById('recordView').classList.add('hidden');
+  document.getElementById('referralView').classList.add('hidden');
+}
+
+function showReferralView() {
+  hideAllSubViews();
+  document.getElementById('referralView').classList.remove('hidden');
+
+  // Populate month selector
+  var sel = document.getElementById('referralMonth');
+  var months = {};
+  app.cards.forEach(function(c) {
+    if (c.invitedBy) {
+      var m = c.buyDate.substring(0, 7);
+      months[m] = true;
+    }
+  });
+
+  var currentMonth = new Date().toISOString().substring(0, 7);
+  if (!months[currentMonth]) months[currentMonth] = true;
+
+  var monthList = Object.keys(months).sort().reverse();
+  // Always include current and previous month
+  if (monthList.indexOf(currentMonth) === -1) monthList.unshift(currentMonth);
+
+  sel.innerHTML = monthList.map(function(m) {
+    var label = m;
+    if (m === currentMonth) label = m + '（本月）';
+    return '<option value="' + m + '">' + label + '</option>';
+  }).join('');
+
+  if (monthList.length > 0) sel.value = currentMonth;
+
+  renderReferralView();
+}
+
+function closeReferralView() {
+  document.getElementById('referralView').classList.add('hidden');
+  document.getElementById('bossView').classList.remove('hidden');
+  renderBossView();
+}
+
+function renderReferralView() {
+  var month = document.getElementById('referralMonth').value;
+  var list = document.getElementById('referralList');
+  var empty = document.getElementById('referralEmpty');
+
+  // Find all cards bought in this month that have an inviter
+  var referralsInMonth = app.cards.filter(function(c) {
+    return c.invitedBy && c.buyDate.startsWith(month);
+  });
+
+  if (referralsInMonth.length === 0) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  // Group by inviter, split into new vs renewal
+  var byInviter = {};
+  referralsInMonth.forEach(function(c) {
+    var code = c.invitedBy.toUpperCase();
+    if (!byInviter[code]) byInviter[code] = { newCards: [], renewCards: [] };
+    // Renewal = card note contains '续卡' or fromCard references another card as renewal
+    var isRenew = (c.renewCount && c.renewCount > 0);
+    if (isRenew) {
+      byInviter[code].renewCards.push(c);
+    } else {
+      byInviter[code].newCards.push(c);
+    }
+  });
+
+  // Calculate commissions
+  var rows = [];
+  Object.keys(byInviter).forEach(function(code) {
+    var group = byInviter[code];
+    var newCount = group.newCards.length;
+    var renewCount = group.renewCards.length;
+
+    // New customer rate: ≤5 → 5%, >5 → 10%
+    var newRate = newCount <= 5 ? 0.05 : 0.10;
+    // Renewal: always 5%
+    var renewRate = 0.05;
+
+    var newPerPerson = Math.round(198 * newRate * 100) / 100;
+    var renewPerPerson = Math.round(198 * renewRate * 100) / 100;
+    var newTotal = newCount; // cups, not money
+    var renewTotal = Math.round(renewPerPerson * renewCount * 100) / 100;
+    var total = renewTotal; // only renewal fund counts as money
+
+    var inviterCard = findCardByInviteCode(code);
+    var inviterName = inviterCard ? inviterCard.name : code;
+    var inviterPhone = inviterCard ? inviterCard.phone : '';
+
+    rows.push({
+      code: code,
+      name: inviterName,
+      phone: inviterPhone,
+      newCount: newCount,
+      renewCount: renewCount,
+      newRate: newRate,
+      renewRate: renewRate,
+      newPerPerson: newPerPerson,
+      renewPerPerson: renewPerPerson,
+      newTotal: newTotal,
+      renewTotal: renewTotal,
+      total: total,
+      newCards: group.newCards,
+      renewCards: group.renewCards,
+    });
+  });
+
+  rows.sort(function(a, b) { return b.total - a.total; });
+
+  var monthTotal = rows.reduce(function(sum, r) { return sum + r.total; }, 0);
+
+  list.innerHTML =
+    '<div class="bg-white rounded-2xl p-4 card-shadow mb-3 flex items-center justify-between">'
+    + '<span class="text-sm font-bold text-gray-600">' + month + ' 返佣总额</span>'
+    + '<span class="text-2xl font-black text-amber-600">¥' + monthTotal.toFixed(2) + '</span>'
+    + '</div>'
+    + rows.map(function(row) {
+      var detailParts = [];
+      if (row.newCount > 0) detailParts.push('拉新 ' + row.newCount + '人 → +' + row.newCount + '杯酒');
+      if (row.renewCount > 0) detailParts.push('续卡 ' + row.renewCount + '人 × ¥' + row.renewPerPerson.toFixed(2) + '（5%）= ¥' + row.renewTotal.toFixed(2));
+
+      return '<div class="bg-white rounded-2xl p-5 card-shadow">'
+        + '<div class="flex items-center justify-between mb-3">'
+        + '<div>'
+        + '<p class="font-bold text-gray-900 text-lg">' + row.name + ' <span class="text-gray-400 text-sm font-normal">' + row.phone + '</span></p>'
+        + '<p class="text-xs text-gray-400">邀请码：' + row.code + '</p>'
+        + '</div>'
+        + '<div class="text-right">'
+        + '<p class="text-2xl font-black text-amber-600">¥' + row.total.toFixed(2) + '</p>'
+        + '<div class="text-xs text-gray-400">' + detailParts.join('<br>') + '</div>'
+        + '</div>'
+        + '</div>'
+        + (row.newCards.length > 0 ? '<div class="border-t border-gray-100 pt-3 space-y-1"><p class="text-xs font-bold text-green-600 mb-1">🆕 拉新（每人+1杯）</p>'
+        + row.newCards.map(function(r) {
+          return '<div class="flex items-center gap-2 text-xs text-gray-500">'
+            + '<span class="font-mono text-gray-300 w-20">' + r.id + '</span>'
+            + '<span class="font-bold text-gray-600">' + r.name + '</span>'
+            + '<span class="text-gray-400">' + r.phone + '</span>'
+            + '<span class="text-gray-400">' + r.buyDate + '</span>'
+            + '<span class="text-green-500 text-xs">+1杯</span>'
+            + '</div>';
+        }).join('') + '</div>' : '')
+        + (row.renewCards.length > 0 ? '<div class="border-t border-gray-100 pt-3 space-y-1"><p class="text-xs font-bold text-blue-600 mb-1">🔁 续卡（喝酒基金5%）</p>'
+        + row.renewCards.map(function(r) {
+          return '<div class="flex items-center gap-2 text-xs text-gray-500">'
+            + '<span class="font-mono text-gray-300 w-20">' + r.id + '</span>'
+            + '<span class="font-bold text-gray-600">' + r.name + '</span>'
+            + '<span class="text-gray-400">' + r.phone + '</span>'
+            + '<span class="text-gray-400">' + r.buyDate + '</span>'
+            + '</div>';
+        }).join('') + '</div>' : '')
+        + '<div class="mt-3 pt-3 border-t border-gray-100">'
+        + '<div class="flex items-center justify-between">'
+        + '<span class="text-xs text-gray-400">钱包余额</span>'
+        + '<span class="text-sm font-black text-green-600">¥' + (getWallet(row.code).balance || 0).toFixed(2) + '</span>'
+        + '</div>'
+        + '<p class="text-xs text-gray-400 mt-1">拉新送杯已实时到账 · 续卡基金自动累积</p>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+}
+
+// ---- Wallet Functions ----
+function getWallet(code) {
+  if (!app.wallets) app.wallets = {};
+  return app.wallets[code] || { balance: 0, history: [] };
+}
+
+function addToWallet(code, amount, month, desc) {
+  if (!app.wallets) app.wallets = {};
+  if (!app.wallets[code]) app.wallets[code] = { balance: 0, history: [] };
+  app.wallets[code].balance = Math.round((app.wallets[code].balance + amount) * 100) / 100;
+  app.wallets[code].history.push({
+    time: new Date().toISOString(),
+    type: 'credit',
+    amount: amount,
+    month: month,
+    desc: desc,
+    balanceAfter: app.wallets[code].balance,
+  });
+  saveData(app);
+}
+
+function deductFromWallet(code, amount, desc) {
+  if (!app.wallets || !app.wallets[code]) return false;
+  if (app.wallets[code].balance < amount) return false;
+  app.wallets[code].balance = Math.round((app.wallets[code].balance - amount) * 100) / 100;
+  app.wallets[code].history.push({
+    time: new Date().toISOString(),
+    type: 'debit',
+    amount: -amount,
+    desc: desc,
+    balanceAfter: app.wallets[code].balance,
+  });
+  saveData(app);
+  return true;
+}
+
+// ---- Real-time commission: called whenever a card is created with an invite code ----
+
+// Helper: create a gift ticket for a card holder
+function createGiftTicket(cardId, cardName, cardPhone, source) {
+  if (!app.giftTickets) app.giftTickets = [];
+  var today = new Date();
+  var expire = new Date(today);
+  expire.setDate(expire.getDate() + 30);
+  var redeemCode = String(Math.floor(Math.random() * 900000) + 100000);
+  while (app.giftTickets.some(function(t) { return t.redeemCode === redeemCode; })) {
+    redeemCode = String(Math.floor(Math.random() * 900000) + 100000);
+  }
+  var ticket = {
+    id: 'GIFT-' + today.getFullYear() + String(today.getMonth()+1).padStart(2,'0') + String(app.giftTickets.length + 1).padStart(3,'0'),
+    redeemCode: redeemCode,
+    ownerCardId: cardId,
+    ownerName: cardName,
+    ownerPhone: cardPhone,
+    source: 'renew_reward',
+    sourceDetail: source || '续卡奖励',
+    createdAt: today.toISOString().split('T')[0],
+    expireDate: expire.toISOString().split('T')[0],
+    status: 'unused',
+    transferredTo: '',
+    usedAt: '',
+  };
+  app.giftTickets.push(ticket);
+  saveData(app);
+  return ticket;
+}
+
+function creditCommission(inviteCode, isRenewal, actualPaid) {
+  if (!inviteCode) return;
+  var month = new Date().toISOString().substring(0, 7);
+  var inviter = findCardByInviteCode(inviteCode);
+  if (!inviter) return;
+
+  if (isRenewal) {
+    // Renewal: 5% of actual paid amount (not including fund deduction)
+    var paid = (actualPaid != null) ? actualPaid : 198;
+    var amount = Math.round(paid * 0.05 * 100) / 100;
+    addToWallet(inviteCode, amount, month, month + ' 续卡喝酒基金（实付' + paid.toFixed(2) + '×5%）');
+  } else {
+    // New referral: gift ticket + 9.9 fund
+    addToWallet(inviteCode, 9.9, month, month + ' 拉新喝酒基金（¥9.90，可抵扣续卡）');
+
+    // Create gift ticket
+    if (!app.giftTickets) app.giftTickets = [];
+    var today = new Date();
+    var expire = new Date(today);
+    expire.setDate(expire.getDate() + 30);
+    var redeemCode = String(Math.floor(Math.random() * 900000) + 100000);
+    while ((app.giftTickets || []).some(function(t) { return t.redeemCode === redeemCode; })) {
+      redeemCode = String(Math.floor(Math.random() * 900000) + 100000);
+    }
+    var ticket = {
+      id: 'GIFT-' + today.getFullYear() + String(today.getMonth()+1).padStart(2,'0') + String(app.giftTickets.length + 1).padStart(3,'0'),
+      redeemCode: redeemCode,
+      ownerCardId: inviter.id,
+      ownerName: inviter.name,
+      ownerPhone: inviter.phone,
+      source: 'invite',
+      sourceDetail: '邀请新客办卡奖励',
+      createdAt: today.toISOString().split('T')[0],
+      expireDate: expire.toISOString().split('T')[0],
+      status: 'unused',
+      transferredTo: '',
+      usedAt: '',
+    };
+    app.giftTickets.push(ticket);
+    saveData(app);
+  }
+}
+
+function markPaid(inviteCode, month) {
+  // Deprecated: commission is now real-time. This button is removed from UI.
+  // Keep function for backward compatibility.
+  var inviter = findCardByInviteCode(inviteCode);
+  var name = inviter ? inviter.name : inviteCode;
+  toast('返佣已实时结算到钱包，无需手动操作', 'warn');
+}
+
+function walletWithdraw(inviteCode) {
+  var wallet = getWallet(inviteCode);
+  var inviter = findCardByInviteCode(inviteCode);
+  var name = inviter ? inviter.name : inviteCode;
+
+  if (wallet.balance <= 0) return toast('钱包余额为0', 'warn');
+
+  var amount = prompt(name + ' 钱包余额 ¥' + wallet.balance.toFixed(2) + '\n输入提现金额：', wallet.balance.toFixed(2));
+  if (amount === null) return;
+  amount = parseFloat(amount);
+  if (isNaN(amount) || amount <= 0 || amount > wallet.balance) return toast('无效金额', 'error');
+
+  if (!confirm('确认通过微信支付 ' + name + ' ¥' + amount.toFixed(2) + ' 吗？')) return;
+
+  deductFromWallet(inviteCode, amount, '微信提现');
+  toast('✅ 已提现 ¥' + amount.toFixed(2) + '，剩余余额 ¥' + wallet.balance.toFixed(2));
+  renderReferralView();
+}
+
+function walletDeduct(inviteCode) {
+  var wallet = getWallet(inviteCode);
+  if (wallet.balance <= 0) return toast('钱包余额为0', 'warn');
+
+  var inviter = findCardByInviteCode(inviteCode);
+  var name = inviter ? inviter.name : inviteCode;
+
+  // Find an active card for this person to renew
+  var activeCard = app.cards.find(function(c) {
+    return c.inviteCode === inviteCode && (c.status === 'active' || c.status === 'warning' || c.status === 'expired' || c.status === 'used');
+  });
+
+  if (!activeCard) {
+    // No card to renew, just deduct
+    var amount = prompt(name + ' 钱包余额 ¥' + wallet.balance.toFixed(2) + '\n未找到可续费的卡，输入抵扣金额：', '');
+    if (amount === null) return;
+    amount = parseFloat(amount);
+    if (isNaN(amount) || amount <= 0 || amount > wallet.balance) return toast('无效金额', 'error');
+    deductFromWallet(inviteCode, amount, '余额抵扣');
+    toast('已抵扣 ¥' + amount.toFixed(2) + '，剩余余额 ¥' + wallet.balance.toFixed(2));
+    renderReferralView();
+    return;
+  }
+
+  var remain = activeCard.total - activeCard.used;
+
+  if (!confirm(name + ' 钱包余额 ¥' + wallet.balance.toFixed(2) + '\n\n为 ' + activeCard.name + '（' + activeCard.id + '）续卡：叠加4杯（总' + (remain + 4) + '杯）+ 延长30天，卡号不变\n扣 ¥198' + (remain > 0 ? '（叠加剩余' + remain + '杯）' : ''))) return;
+
+  if (wallet.balance < 198) return toast('余额不足 ¥198，无法抵扣续卡', 'error');
+
+  var deductAmount = Math.min(198, wallet.balance);
+  deductFromWallet(inviteCode, deductAmount, '续卡抵扣（' + activeCard.id + '）');
+
+  // Renew in-place
+  var today = new Date();
+  var baseExpire = new Date(activeCard.expireDate + 'T00:00:00');
+  if (isNaN(baseExpire.getTime()) || baseExpire < today) baseExpire = today;
+  var expire = new Date(baseExpire);
+  expire.setDate(expire.getDate() + 30);
+
+  if (typeof activeCard.renewCount === 'undefined') activeCard.renewCount = 0;
+  activeCard.renewCount++;
+  activeCard.total += 4;
+  activeCard.expireDate = expire.toISOString().split('T')[0];
+  activeCard.status = 'active';
+  activeCard.buyDate = today.toISOString().split('T')[0];
+  var oldNote = activeCard.note ? activeCard.note + '；' : '';
+  activeCard.note = oldNote + '钱包续卡' + activeCard.renewCount + '次（叠加4杯）';
+  refreshCardStatus(activeCard);
+
+  // Renewal commission (based on actual paid amount)
+  if (activeCard.invitedBy && findCardByInviteCode(activeCard.invitedBy)) {
+    creditCommission(activeCard.invitedBy, true, deductAmount);
+  }
+
+  saveData(app);
+  renderBossView();
+
+  createGiftTicket(activeCard.id, activeCard.name, activeCard.phone, '余额续卡奖励（可赠友）');
+
+  toast('✅ 余额续卡成功！' + activeCard.name + ' 卡号不变，' + activeCard.total + '杯 + 1张赠饮券，余额剩余 ¥' + wallet.balance.toFixed(2));
+}
+
+function exportData() {
+  var data = localStorage.getItem(STORAGE_KEY);
+  if (!data) return toast('暂无数据可导出', 'warn');
+
+  // Also copy to clipboard for easy local backup
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(data).catch(function(){});
+  }
+
+  var blob = new Blob([data], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var now = new Date();
+  a.download = 'beer-card-backup-' + now.toISOString().split('T')[0] + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('数据已导出！请妥善保存备份文件');
+}
+
+function importData(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) {
+    event.target.value = '';
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = JSON.parse(e.target.result);
+      // Basic validation
+      if (!data.cards || !Array.isArray(data.cards)) throw new Error('数据格式无效');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      toast('数据已恢复！共 ' + data.cards.length + ' 张卡，' + (data.records ? data.records.length : 0) + ' 条记录');
+      setTimeout(function() { location.reload(); }, 800);
+    } catch(err) {
+      toast('导入失败：数据格式不正确', 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function resetAllData() {
+  if (!confirm('确定要清空所有数据并重置为演示数据吗？此操作不可恢复。')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+// ---- Dashboard ----
+var dashboardVisible = false;
+function toggleDashboard() {
+  dashboardVisible = !dashboardVisible;
+  var panel = document.getElementById('dashboardPanel');
+  var btn = document.getElementById('btnDashboard');
+  if (dashboardVisible) {
+    panel.classList.remove('hidden');
+    btn.className = 'px-4 py-2.5 bg-indigo-50 rounded-xl text-sm font-bold text-indigo-600 hover:bg-indigo-100 active:scale-95 transition-all whitespace-nowrap border border-indigo-200';
+    updateDashboard();
+  } else {
+    panel.classList.add('hidden');
+    btn.className = 'px-4 py-2.5 bg-gray-100 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-all whitespace-nowrap';
+  }
+}
+
+function updateDashboard() {
+  if (!dashboardVisible) return;
+
+  // Populate month selector
+  var sel = document.getElementById('dashMonth');
+  var months = {};
+  app.cards.forEach(function(c) {
+    var m = c.buyDate.substring(0, 7);
+    if (m) months[m] = true;
+  });
+  app.records.forEach(function(r) {
+    var m = r.time.substring(0, 7);
+    if (m) months[m] = true;
+  });
+  if (app.wallets) {
+    Object.keys(app.wallets).forEach(function(k) {
+      var w = app.wallets[k];
+      w.history.forEach(function(h) {
+        if (h.month) months[h.month] = true;
+      });
+    });
+  }
+  var monthList = Object.keys(months).sort().reverse();
+  var current = sel.value || 'all';
+  sel.innerHTML = '<option value="all">全部</option>' + monthList.map(function(m) {
+    return '<option value="' + m + '"' + (m === current ? ' selected' : '') + '>' + m + '</option>';
+  }).join('');
+  sel.value = current;
+
+  var filterMonth = sel.value; // 'all' or 'YYYY-MM'
+
+  function inMonth(card) {
+    if (filterMonth === 'all') return true;
+    return card.buyDate.substring(0, 7) === filterMonth;
+  }
+  function walletMonth(hist) {
+    if (filterMonth === 'all') return true;
+    return hist.month === filterMonth;
+  }
+
+  var allCards = app.cards;
+  var monthCards = filterMonth === 'all' ? allCards : allCards.filter(inMonth);
+  var totalCards = monthCards.length;
+  var newCards = monthCards.filter(function(c) { return !c.renewCount || c.renewCount === 0; }).length;
+  var renewCards = monthCards.filter(function(c) { return c.renewCount && c.renewCount > 0; }).length;
+  var activeCards = allCards.filter(function(c) { return c.status === 'active' || c.status === 'warning'; }).length;
+
+  var todayStr = getBizDay();
+  var todayVerify = app.records.filter(function(r) { return r.time.startsWith(todayStr); }).length;
+
+  var revenue = totalCards * 198;
+
+  // Subtract wallet deductions for this month
+  var fundDeduction = 0;
+  if (app.wallets) {
+    Object.keys(app.wallets).forEach(function(k) {
+      var w = app.wallets[k];
+      w.history.forEach(function(h) {
+        if (h.type === 'debit' && h.desc.indexOf('续卡抵扣') !== -1 && walletMonth(h)) fundDeduction += h.amount;
+      });
+    });
+  }
+  revenue -= fundDeduction;
+
+  // Total commission paid this month
+  var totalCommission = 0;
+  if (app.wallets) {
+    Object.keys(app.wallets).forEach(function(k) {
+      var w = app.wallets[k];
+      w.history.forEach(function(h) {
+        if (h.type === 'credit' && walletMonth(h)) totalCommission += h.amount;
+      });
+    });
+  }
+  totalCommission = Math.round(totalCommission * 100) / 100;
+
+  var invitedCards = allCards.filter(function(c) { return c.invitedBy; }).length;
+  var inviteRate = allCards.length > 0 ? Math.round((invitedCards / allCards.length) * 100) : 0;
+
+  document.getElementById('dashTotalCards').textContent = totalCards;
+  document.getElementById('dashNewCards').textContent = newCards;
+  document.getElementById('dashRenewCards').textContent = renewCards;
+  document.getElementById('dashTodayVerify').textContent = todayVerify;
+  document.getElementById('dashRevenue').textContent = '¥' + revenue.toLocaleString();
+  document.getElementById('dashCommission').textContent = '¥' + totalCommission.toFixed(2);
+  document.getElementById('dashActiveCards').textContent = activeCards;
+  document.getElementById('dashInviteRate').textContent = inviteRate + '%';
+}
+
+// ---- INIT (triggered after PIN unlock) ----
+
+// ---- Auto-backup (daily, on page load if not backed up today) ----
+(function() {
+  var today = new Date().toISOString().split('T')[0];
+  var lastBackup = localStorage.getItem(STORAGE_KEY + '_lastBackup');
+  if (lastBackup !== today) {
+    setTimeout(function() {
+      var data = localStorage.getItem(STORAGE_KEY);
+      if (!data) return;
+      var blob = new Blob([data], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'beer-card-auto-' + today + '.json';
+      a.click();
+      localStorage.setItem(STORAGE_KEY + '_lastBackup', today);
+      var cardCount = JSON.parse(data).cards ? JSON.parse(data).cards.length : 0;
+      setTimeout(function() { toast('📦 每日自动备份完成（' + cardCount + ' 张卡）', 'info'); }, 2000);
+    }, 30000);
+  }
+})();
+
+// ---- Auto-backup reminder (checks every 30 min if data changed) ----
+var _lastBackupCheck = Date.now();
+function _checkBackup() {
+  var lastMod = localStorage.getItem(STORAGE_KEY + '_lastModified');
+  if (!lastMod) return;
+  var modTime = new Date(lastMod).getTime();
+  if (modTime > _lastBackupCheck) {
+    var hours = Math.round((Date.now() - modTime) / 3600000 * 10) / 10;
+    if (hours >= 0.5 && confirm('⚠️ 数据已 ' + hours.toFixed(1) + ' 小时未备份。建议立即导出备份防止数据丢失。是否现在导出？')) {
+      exportData();
+      _lastBackupCheck = Date.now();
+    }
+  }
+}
+setInterval(_checkBackup, 30 * 60 * 1000);
+setTimeout(_checkBackup, 2 * 60 * 1000);
+</script>
+</body>
+</html>
