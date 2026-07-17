@@ -4,7 +4,6 @@ import http.server
 import json
 import os
 import sys
-import cgi
 
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data.json')
 GIT_REPO = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bar-blackdog')
