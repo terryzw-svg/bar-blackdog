@@ -91,6 +91,10 @@ def git_push():
     try:
         now = datetime.now(CST).strftime('%Y-%m-%d %H:%M:%S')
 
+        # 重置 data.json / public-data.json 的本地变动（避免上次遗留的 unstaged changes 阻塞 rebase）
+        subprocess.run(['git', 'checkout', '--', 'data.json', 'public-data.json'],
+                       cwd=BASE_DIR, capture_output=True)
+
         # 先拉取远程，避免冲突
         subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'],
                        cwd=BASE_DIR, capture_output=True, check=True)
