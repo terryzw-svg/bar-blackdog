@@ -3,13 +3,13 @@
     {
       "id": "MK-20260706",
       "name": "萌萌",
-      "phone": "13812341111",
+      "phoneHash": "e19392884a95",
+      "phoneMasked": "138****1111",
       "total": 4,
       "used": 1,
       "buyDate": "2026-07-08",
       "expireDate": "2026-08-16",
       "inviteCode": "M6K8",
-      "invitedBy": "",
       "status": "active",
       "transferred": 0,
       "renewCount": 0
@@ -17,32 +17,29 @@
     {
       "id": "MK-20260707",
       "name": "周超",
-      "phone": "13900002222",
+      "phoneHash": "db8cc4c4d65f",
+      "phoneMasked": "139****2222",
       "total": 4,
       "used": 2,
       "buyDate": "2026-07-08",
       "expireDate": "2026-08-16",
       "inviteCode": "Z7C9",
-      "invitedBy": "M6K8",
       "status": "active",
       "transferred": 0,
       "renewCount": 0
     }
   ],
-  "records": [],
   "wallets": {
     "M6K8": {
-      "balance": 29.7,
-      "history": []
+      "balance": 29.7
     }
   },
   "giftTickets": [
     {
       "id": "GIFT-001",
       "redeemCode": "123456",
-      "ownerCardId": "MK-20260706",
+      "ownerPhoneHash": "e19392884a95",
       "ownerName": "萌萌",
-      "ownerPhone": "13812341111",
       "source": "invite",
       "sourceDetail": "邀请新客办卡奖励",
       "createdAt": "2026-07-10",
@@ -52,5 +49,5 @@
       "usedAt": ""
     }
   ],
-  "nextId": 8
+  "updatedAt": "2026-07-23 00:30:41 +08:00"
 }
