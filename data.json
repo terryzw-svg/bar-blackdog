@@ -5,7 +5,7 @@
       "name": "萌萌",
       "phone": "13812341111",
       "total": 4,
-      "used": 1,
+      "used": 2,
       "buyDate": "2026-07-08",
       "expireDate": "2026-08-16",
       "inviteCode": "M6K8",
@@ -19,12 +19,12 @@
       "name": "周超",
       "phone": "13900002222",
       "total": 4,
-      "used": 2,
+      "used": 3,
       "buyDate": "2026-07-08",
       "expireDate": "2026-08-16",
       "inviteCode": "Z7C9",
       "invitedBy": "M6K8",
-      "status": "active",
+      "status": "warning",
       "transferred": 0,
       "renewCount": 0
     }
@@ -32,25 +32,9 @@
   "records": [],
   "wallets": {
     "M6K8": {
-      "balance": 29.7,
-      "history": []
+      "balance": 29.7
     }
   },
-  "giftTickets": [
-    {
-      "id": "GIFT-001",
-      "redeemCode": "123456",
-      "ownerCardId": "MK-20260706",
-      "ownerName": "萌萌",
-      "ownerPhone": "13812341111",
-      "source": "invite",
-      "sourceDetail": "邀请新客办卡奖励",
-      "createdAt": "2026-07-10",
-      "expireDate": "2026-08-09",
-      "status": "unused",
-      "transferredTo": "",
-      "usedAt": ""
-    }
-  ],
+  "giftTickets": [],
   "nextId": 8
 }
