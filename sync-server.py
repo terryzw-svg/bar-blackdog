@@ -91,15 +91,12 @@ def git_push():
     try:
         now = datetime.now(CST).strftime('%Y-%m-%d %H:%M:%S')
 
-        # 重置 data.json / public-data.json 的本地变动（避免上次遗留的 unstaged changes 阻塞 rebase）
-        subprocess.run(['git', 'checkout', '--', 'data.json', 'public-data.json'],
-                       cwd=BASE_DIR, capture_output=True)
-
-        # 先拉取远程，避免冲突
-        subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'],
+        # 先 add 新数据（此时 data.json/public-data.json 已被 sanitize 写入）
+        subprocess.run(['git', 'add', 'data.json', 'public-data.json'],
                        cwd=BASE_DIR, capture_output=True, check=True)
 
-        subprocess.run(['git', 'add', 'data.json', 'public-data.json'],
+        # 拉取远程，避免冲突（--autostash 自动处理本地未暂存的改动）
+        subprocess.run(['git', 'pull', '--rebase', '--autostash', 'origin', 'main'],
                        cwd=BASE_DIR, capture_output=True, check=True)
 
         # 跳过空提交
